@@ -63,6 +63,12 @@ def main(argv=None):
     p.add_argument("directory")
     p.add_argument("--only", nargs="+", help="hash only these top-level entries of the directory")
     sub.add_parser("manifest").add_argument("directory")
+    p = sub.add_parser("report", help="write docs/RESULTS.md from the baselines")
+    p.add_argument("--root", help="directory holding defects/ for the dev split (default: this repo)")
+    p.add_argument("--apps")
+    p.add_argument("--heldout", help="held-out repo directory (default: $%s)" % HELDOUT_ENV)
+    p.add_argument("--out", default=os.path.join(REPO_ROOT, "docs", "RESULTS.md"))
+    p.add_argument("--no-toy", action="store_true", help="skip the examples/toy_reviewer.py row")
     p = sub.add_parser("hyp", help="H1 and H3 from the --json output of `run`")
     p.add_argument("summary", help="path to a `run --json` output file")
     p = sub.add_parser("build", help="compose defect specs with noise into items")
@@ -84,6 +90,23 @@ def main(argv=None):
     if a.cmd == "hyp":
         with open(a.summary, encoding="utf-8") as fh:
             print(json.dumps(hypotheses(json.load(fh)), indent=2))
+        return 0
+    if a.cmd == "report":
+        from .report import build
+        dev = load_all(a.root or REPO_ROOT, a.apps)
+        held_dir = a.heldout or os.environ.get(HELDOUT_ENV)
+        held = load_all(held_dir, a.apps or os.path.join(REPO_ROOT, "apps")) if held_dir else None
+        if not dev:
+            print("no defects found", file=sys.stderr)
+            return 1
+        split_file = os.path.join(REPO_ROOT, "prereg", "split.sha256")
+        with open(split_file, encoding="utf-8") as fh:
+            want = fh.read().strip()
+        text = build(dev, held or None, toy=not a.no_toy, split_hash=want,
+                     manifest=manifest_hash(held_dir) if held else None)
+        with open(a.out, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+        print("wrote %s" % a.out)
         return 0
     if a.cmd == "build":
         from .build import write_items
