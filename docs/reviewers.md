@@ -27,9 +27,16 @@ stdout: JSON, either a list or an object with a `findings` list:
 - `text`: optional string, free text, not scored.
 - An empty list means "no findings".
 
-A non-zero exit, a timeout, invalid JSON, stdout over 1 MiB or a finding that breaks the schema is a
+A non-zero exit, a timeout, invalid JSON, stdout over 1 MiB (the process is killed as soon as the
+cap is crossed, not after it finishes), a process left holding the output pipe after the timeout, or a finding that breaks the schema is a
 reviewer error: the run stops with `reviewer error: ...` and exit code 1. It is never silently
 scored as "no findings".
 
 The command runs with your environment (so it can use your own keys) and is not sandboxed. The
 harness itself makes no network calls and holds no keys. Scoring is described in the README.
+
+## Example
+
+[`examples/toy_reviewer.py`](../examples/toy_reviewer.py) is a complete reference implementation of this
+contract. It is a **toy baseline** (it flags blocks that remove more guard-looking lines than they add)
+and its numbers are in [`RESULTS.md`](RESULTS.md); it is not a tool to use on real code.

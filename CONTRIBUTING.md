@@ -38,7 +38,12 @@ Rules:
 - Exactly one defect hunk; noise stays at least 8 lines away (the builder guarantees it).
 - Race defects must be deterministic: a hook plus a timed barrier, never `sleep` and hope.
 - No code copied from existing projects; no secrets, emails or personal data.
-- Do not edit `apps/` after a split hash is recorded: it voids the held-out items.
+- Do not edit `apps/` after a split hash is recorded: it voids the held-out items built on that app.
+  The original 12 apps are frozen (a test checks their hash); add a new app instead of changing one.
+- Noise pools can be generated (`python tools/gen_noise.py apps/<app> > noise/<app>.json`) or
+  hand-written; either way `tests/test_noise.py` must pass.
+- Compose and check many specs at once with `guardbench build specs/<app>-*.json --out DIR` then
+  `guardbench validate --root DIR`.
 
 Test-split defects are never committed to this repository. They are built from their own specs and
 noise pools in the private repo and read through `GUARDBENCH_HELDOUT`. Run `python -m pytest -q`

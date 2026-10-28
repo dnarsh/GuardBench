@@ -102,3 +102,14 @@ def test_large_diff_on_stdin_with_a_reviewer_that_reads_late(tmp_path):
     p = script(tmp_path, "import sys, json\nd = sys.stdin.read()\nprint(json.dumps([{'file': 'a.py', 'line': len(d) % 7 + 1}]))\n")
     big = "x" * 5000000
     assert reviewers.command_reviewer([sys.executable, p], 30)(big)[0]["file"] == "a.py"
+
+
+def test_a_leftover_child_holding_stdout_cannot_outlive_the_timeout(tmp_path):
+    """Found in differential review of the streaming change: the parent exits, a grandchild keeps the pipe."""
+    import time
+    p = script(tmp_path, "import subprocess, sys\n"
+                         "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\nprint('[]')\n")
+    t0 = time.time()
+    with pytest.raises(reviewers.ReviewerError, match="output open"):
+        reviewers.command_reviewer([sys.executable, p], timeout=3)("d")
+    assert time.time() - t0 < 12

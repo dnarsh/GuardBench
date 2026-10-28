@@ -2,10 +2,11 @@
 
 A public, judge-free benchmark of **seeded security-guard defects** for AI code reviewers.
 
-Status: **work in progress, milestone 2.** The harness, 12 apps and 35 validated defect/clean-twin
-pairs exist (20 public dev, 15 held out). No reviewer other than two trivial baselines has been run.
-**No result about any model is claimed.** With only 15 held-out defects, pre-registered kill
-criterion 1 (fewer than 100 test defects) applies: any run on the test split is a pilot.
+Status: **v0.2.0, work in progress, milestone 3.** The harness, 20 small apps and 130 validated
+defect/clean-twin pairs exist (30 public dev, 100 held out). No reviewer other than two trivial
+baselines and one labelled toy script has been run. **No result about any model is claimed, and no
+hypothesis (H1, H2, H3) has a verdict.** The pre-registered held-out target is 150 defects, so any
+run on the current 100 is a pilot. Numbers: [`docs/RESULTS.md`](docs/RESULTS.md).
 
 ## What it is
 
@@ -30,44 +31,54 @@ F1, with Wilson 95% intervals; `guardbench hyp` adds the H1 verdict and the H3 N
 
 ## Data
 
-| | apps | pairs | per class |
+| | apps with items | pairs | per class |
 |---|---|---|---|
-| public dev | 8 with items (12 apps ship) | 20 | 4 each |
-| held out (private repo) | 4 (sessions, vault, jobq, pager) | 15 | 3 each |
+| public dev | 9 (of 20 apps that ship) | 30 | 6 each |
+| held out (private repo) | 11 | 100 | 20 each |
 
-The held-out split is not in this repo. Its manifest hash is in `prereg/split.sha256`
-(`3343e5b8...`); its construction is described in the amendments.
+The held-out items are not in this repo. Their manifest hash is in `prereg/split.sha256`
+(`ae29a20e...`); how they were built and the order of operations are in the amendments (A6 to A9).
+The original 12 apps are byte-for-byte unchanged since `prereg-v2` (checked by a test); apps 13 to 20
+were added in new directories only.
 
-## The honest numbers (dev split, no reviewer, baselines only)
+## The honest numbers (baselines only, no model)
 
-`python -m guardbench baselines` on 20 dev items (min 8, mean 11.1, max 13 hunks per diff):
+Full tables with Wilson intervals, per-class recall and Newcombe differences:
+[`docs/RESULTS.md`](docs/RESULTS.md) (regenerate with `python -m guardbench report`).
 
-| Baseline | Recall | Precision | F1 | Clean-twin alarms |
-|---|---|---|---|---|
-| `random`, seed 0 (one run) | 0.100 [0.028, 0.301] (2/20) | n/a | n/a | n/a |
-| `random`, exact expectation | 0.062 (over 200 seeds: mean 0.072, max 0.250) | | | |
-| `hunk-all` | 1.000 [0.839, 1.000] (20/20) | 0.045 | 0.087 | 1.000 [0.839, 1.000] |
+| Reviewer | Dev recall (n=30) | Held-out recall (n=100) | Clean-twin alarm (held-out) |
+|---|---|---|---|
+| `random` (seed 0, one run; exact expectation 0.064 dev, 0.059 held-out) | 0.133 | 0.050 | 1.000 |
+| `hunk-all` | 1.000 | 1.000 | 1.000 (precision 0.045) |
+| `examples/toy_reviewer.py` (toy heuristic) | 0.500 | 0.520 | 0.110 (precision 0.825) |
 
-Milestone 1 had `random` at 10/10 on tiny diffs, which tripped kill criterion 3; how it was fixed is
-in [`docs/noise-iteration.md`](docs/noise-iteration.md). `hunk-all` finds every defect by
-construction and pays with precision and false alarms; recall alone does not discriminate it, which
-is why F1 and the alarm rate are part of H2.
+What these mean, and do not mean: `hunk-all` finds everything by construction and is useless
+(precision 0.045). `random` shows the localisation floor is low. The **toy** script, which only looks for
+a removed `raise` or a flipped `return False`, finds half the defects (all of removed-validation and
+nearly all fail-open, none of secret-leakage or off-by-one): that is a measure of how much of the
+benchmark is solvable through planted-bug style artifacts, not a result about reviewers. Any real
+reviewer's recall must be read against it.
 
 ## What it is NOT
 
 - Not a leaderboard and not evidence about any model.
 - Not real-world vulnerabilities: the bugs are synthetic, written by one author (an AI agent).
 - Not a sandbox. Validating a defect executes code (see Security model).
-- Not large: 35 pairs, target 150+ held out.
+- Not large: 130 pairs; the pre-registered held-out target is 150.
 
 ## Honest limits
 
-- **Small n.** 15 held-out items give very wide intervals; see the sample-size arithmetic.
-- **Noise is cosmetic.** A reviewer that just finds the one behaviour-changing hunk gets most of the
-  localisation for free. Noise of held-out apps is private; noise style is shared.
-- **Contamination.** Apps, dev items, and the tests/READMEs of the held-out apps are public.
-- **Dev share is 57%, not 40%** (10 pilot pairs were already public).
+- **Small n.** 100 held-out items still give wide intervals, and per-class cells (20) wider.
+- **Planted-bug style artifacts.** Defects are small edits (a flipped return, a deleted `raise`).
+  The toy script exploits this. The 8 apps added in milestone 3 are uniform in style.
+- **Noise is cosmetic.** Noise of the new apps is one-line docstrings from the public
+  `tools/gen_noise.py`, so it is reproducible by anyone; docstring-only hunks are an obvious thing to
+  ignore. Noise pools of the milestone-2 held-out apps remain private.
+- **Contamination.** Apps, dev items and the tests/READMEs of the held-out apps are public, and
+  those tests and READMEs name the rule each defect breaks.
+- **Dev share is 23%, not 40%.**
 - **Tolerance** (+-3 lines) and the guard/logic grouping are judgement calls.
+- **Self-review.** The written reviews are by the agent that wrote the code.
 - Everything was authored and validated on Windows; CI runs Linux (Python 3.10, 3.12).
 
 ## Run it
@@ -77,14 +88,18 @@ Python 3.8+, standard library only. `pytest` is needed only for the harness test
 ```
 python -m guardbench validate                    # prove every dev defect
 python -m guardbench run --reviewer random       # hunk-all, random, command, or module:callable
+python -m guardbench run --reviewer command --command python examples/toy_reviewer.py
 python -m guardbench baselines                   # both baselines with exact random expectation
+python -m guardbench report                      # writes docs/RESULTS.md (held-out needs GUARDBENCH_HELDOUT)
 python -m guardbench hyp run.json                # H1 verdict and H3 interval from `run --json`
 python -m guardbench manifest DIR                # manifest hash used for prereg/split.sha256
+python -m guardbench hash apps --only NAME ...   # hash of selected apps (the original 12 are frozen)
 python -m pytest -q
 ```
 
 Reviewer interface (callable or external command with JSON on stdout): [`docs/reviewers.md`](docs/reviewers.md).
-No API keys and no model calls exist in this repository.
+[`examples/toy_reviewer.py`](examples/toy_reviewer.py) implements it with a 40-line heuristic, **a toy
+baseline, not a tool**. No API keys and no model calls exist in this repository.
 
 ### Held-out split
 
@@ -103,8 +118,9 @@ the whole process tree (POSIX process group, Windows `taskkill /T`), output capp
 sockets blocked by a Python-level patch. Not covered: it runs as your user and can read your files;
 the network block is bypassable (ctypes, curl); a process that escapes its group or is re-parented
 can outlive the kill; no CPU, memory or disk limit. Validate defects only from sources you trust,
-ideally in a container or VM. Written review: [`docs/reviews/validator-and-sandbox.md`](docs/reviews/validator-and-sandbox.md).
-A `command` reviewer is user code and is not sandboxed at all.
+ideally in a container or VM. Written reviews: [`docs/reviews/`](docs/reviews/).
+A `command` reviewer is user code and is not sandboxed at all; the harness streams its output with a
+hard 1 MiB cap and bounded stderr, and fails (rather than hangs) if it leaves a process holding the pipe.
 
 ## Design decisions made without asking
 
@@ -113,7 +129,9 @@ A `command` reviewer is user code and is not sandboxed at all.
 - The split is by app so noise cannot be subtracted from held-out items.
 - App tests use `unittest`; races are deterministic with a hook and a timed barrier.
 - A pure deletion has no added line, so its location is the two surviving lines around it.
+- New apps are added in new directories so the milestone-2 held-out items stay valid (amendment A6).
 
 ## Contributing, provenance, license
 
-[CONTRIBUTING.md](CONTRIBUTING.md), [PROVENANCE.md](PROVENANCE.md). MIT, see [LICENSE](LICENSE).
+[CONTRIBUTING.md](CONTRIBUTING.md), [PROVENANCE.md](PROVENANCE.md), [CHANGELOG.md](CHANGELOG.md).
+MIT, see [LICENSE](LICENSE).

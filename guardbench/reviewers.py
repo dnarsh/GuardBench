@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 import threading
+import time
 
 from .baselines import flag_every_hunk, make_random
 from .validate import kill_tree
@@ -81,6 +82,8 @@ def command_reviewer(argv, timeout=120):
                    threading.Thread(target=lambda: res.update(err=_pump(p, p.stderr, 4000, over, 0)), daemon=True)]
         for th in threads:
             th.start()
+        deadline = time.monotonic() + timeout
+        stuck = False
         try:
             try:
                 p.wait(timeout)
@@ -89,10 +92,14 @@ def command_reviewer(argv, timeout=120):
         finally:
             kill_tree(p)
             p.wait()
-            for th in threads:
-                th.join(5)
-            for s in (p.stdout, p.stderr):
-                s.close()
+            for th in threads[1:]:  # a grandchild may keep the pipes open after the parent is gone
+                th.join(max(deadline - time.monotonic(), 0.5))
+            stuck = any(th.is_alive() for th in threads[1:])
+            if not stuck:  # closing a pipe a reader is still blocked on would hang
+                for s in (p.stdout, p.stderr):
+                    s.close()
+        if stuck:
+            raise ReviewerError("reviewer left a process holding its output open")
         if over.is_set():
             raise ReviewerError("reviewer printed more than %d bytes" % MAX_STDOUT)
         if p.returncode != 0:
