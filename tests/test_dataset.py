@@ -78,3 +78,20 @@ def test_random_baseline_stays_far_from_ceiling():
     """Kill criterion 3 guard: random must not find more than 70% of dev defects."""
     p = [random_hit_probability(d.bug_patch, d.file, d.start, d.end) for d in DEFECTS]
     assert sum(p) / len(p) < 0.15
+
+
+ORIGINAL_APPS = ("authgate", "booking", "coupons", "inventory", "jobq", "pager", "ratelimit",
+                 "sessions", "uploadstore", "vault", "wallet", "webhook")
+ORIGINAL_APPS_HASH = "a83db71f746a6ca69313496c5119bc5099571f3503cca195069d1af1f3468704"
+
+
+def test_the_original_twelve_apps_are_byte_for_byte_the_prereg_v2_apps():
+    """Amendment 3: milestone 3 adds apps in new directories only; these 12 must never change."""
+    from guardbench.defects import tree_hash
+    assert tree_hash(APPS_DIR, only=ORIGINAL_APPS) == ORIGINAL_APPS_HASH
+
+
+def test_milestone_3_floors():
+    assert len(APPS) >= 20
+    assert len(DEFECTS) >= 30
+    assert min(collections.Counter(d.cls for d in DEFECTS).values()) >= 6

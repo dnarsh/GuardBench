@@ -65,3 +65,18 @@ def test_old_env_var_name_is_gone(monkeypatch):
     with pytest.raises(SystemExit) as e:
         cli.main(["run", "--split", "test", "--reviewer", "random"])
     assert e.value.code == 2
+
+
+def test_tree_hash_only_covers_the_named_top_level_entries(tmp_path, capsys):
+    from guardbench.defects import tree_hash
+    for name in ("a", "b"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "f.py").write_text(name)
+    assert tree_hash(str(tmp_path), only=["a"]) != tree_hash(str(tmp_path))
+    only_a = tree_hash(str(tmp_path), only=["a"])
+    (tmp_path / "b" / "f.py").write_text("changed")
+    assert tree_hash(str(tmp_path), only=["a"]) == only_a
+    with pytest.raises(ValueError):
+        tree_hash(str(tmp_path), only=["missing"])
+    assert cli.main(["hash", str(tmp_path), "--only", "a"]) == 0
+    assert capsys.readouterr().out.strip() == only_a

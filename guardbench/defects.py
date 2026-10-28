@@ -67,11 +67,21 @@ def load_all(root, apps_dir=None):
             for n in sorted(os.listdir(ddir)) if os.path.isdir(os.path.join(ddir, n))]
 
 
-def tree_hash(directory):
-    """sha256 over sorted '<posix relpath>\\0<sha256 of bytes>\\n' lines."""
+def tree_hash(directory, only=None):
+    """sha256 over sorted '<posix relpath>\\0<sha256 of bytes>\\n' lines.
+
+    `only` limits it to the named top-level entries (amendment 3 hashes the original 12 apps alone).
+    """
+    if only is not None:
+        missing = [n for n in only if not os.path.exists(os.path.join(directory, n))]
+        if missing:
+            raise ValueError("no such entries in %s: %s" % (directory, ", ".join(missing)))
     lines = []
     for base, dirs, files in os.walk(directory):
-        dirs[:] = [d for d in dirs if d != "__pycache__"]
+        dirs[:] = [d for d in dirs if d != "__pycache__"
+                   and (only is None or base != directory or d in only)]
+        if only is not None and base == directory:
+            files = [f for f in files if f in only]
         for f in files:
             full = os.path.join(base, f)
             rel = os.path.relpath(full, directory).replace(os.sep, "/")

@@ -59,7 +59,9 @@ def main(argv=None):
             p.add_argument("--reviewer-timeout", type=float, default=120)
             p.add_argument("--command", nargs=argparse.REMAINDER,
                            help="program and args for --reviewer command; must be the last option")
-    sub.add_parser("hash").add_argument("directory")
+    p = sub.add_parser("hash")
+    p.add_argument("directory")
+    p.add_argument("--only", nargs="+", help="hash only these top-level entries of the directory")
     sub.add_parser("manifest").add_argument("directory")
     p = sub.add_parser("hyp", help="H1 and H3 from the --json output of `run`")
     p.add_argument("summary", help="path to a `run --json` output file")
@@ -71,7 +73,10 @@ def main(argv=None):
     a = ap.parse_args(argv)
 
     if a.cmd == "hash":
-        print(tree_hash(a.directory))
+        try:
+            print(tree_hash(a.directory, a.only))
+        except ValueError as e:
+            ap.error(str(e))
         return 0
     if a.cmd == "manifest":
         print(manifest_hash(a.directory))
