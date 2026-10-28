@@ -110,6 +110,8 @@ def test_a_leftover_child_holding_stdout_cannot_outlive_the_timeout(tmp_path):
     p = script(tmp_path, "import subprocess, sys\n"
                          "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\nprint('[]')\n")
     t0 = time.time()
-    with pytest.raises(reviewers.ReviewerError, match="output open"):
-        reviewers.command_reviewer([sys.executable, p], timeout=3)("d")
-    assert time.time() - t0 < 12
+    try:  # POSIX: the process-group kill reaps the grandchild and the run succeeds; Windows: it fails
+        assert reviewers.command_reviewer([sys.executable, p], timeout=3)("d") == []
+    except reviewers.ReviewerError as e:
+        assert "output open" in str(e)
+    assert time.time() - t0 < 12  # never the 30 s the grandchild sleeps

@@ -35,7 +35,9 @@ open finding: a reviewer that prints without end is held in memory until the tim
    25 s with a 10 s timeout, 30 s in the regression test). Now the readers are joined only until the
    original deadline, the pipes are not closed while a reader is alive, and the run fails with
    "reviewer left a process holding its output open". Test:
-   `test_a_leftover_child_holding_stdout_cannot_outlive_the_timeout`.
+   `test_a_leftover_child_holding_stdout_cannot_outlive_the_timeout`. On POSIX the process-group kill
+   reaps the grandchild (the CI run on Linux showed the run then simply succeeds), so the test accepts
+   either outcome and asserts only that the run is shorter than the grandchild's sleep.
 3. **OPEN, documented: a leftover process is not killed.** On Windows `taskkill /T` only follows
    children of a live parent, and a POSIX child that calls `setsid` leaves the group. The leftover
    keeps running after the error is raised. Mitigation is outside this harness (run reviewers in a
