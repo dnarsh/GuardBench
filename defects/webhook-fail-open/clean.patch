@@ -1,0 +1,10 @@
+--- a/signature.py
++++ b/signature.py
+@@ -12,6 +12,6 @@
+ def verify(secret, headers, body):
+     """True only when the request carries a valid signature for `body`."""
+     supplied = {k.lower(): v for k, v in headers.items()}.get(HEADER)
+-    if supplied is None:
++    if not supplied:
+         return False
+     return hmac.compare_digest(supplied, compute(secret, body))

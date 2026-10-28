@@ -1,0 +1,11 @@
+--- a/handler.py
++++ b/handler.py
+@@ -9,7 +9,7 @@
+     if not secret:
+         return 500, "server misconfigured"
+     if not verify(secret, headers, body):
+-        return 401, "bad signature"
++        return 401, "bad signature, expected " + compute(secret, body)
+     try:
+         event = json.loads(body)
+     except ValueError:
