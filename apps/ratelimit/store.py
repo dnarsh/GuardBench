@@ -20,3 +20,10 @@ class WindowStore:
     def prune(self, now):
         current = int(now // self.window)
         self._counts = {b: c for b, c in self._counts.items() if b[1] >= current}
+
+    def forget(self, key):
+        self._counts = {b: c for b, c in self._counts.items() if b[0] != key}
+
+    def total(self):
+        """Requests counted across all keys and windows still held."""
+        return sum(self._counts.values())

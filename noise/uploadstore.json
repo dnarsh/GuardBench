@@ -1,0 +1,163 @@
+[
+ [
+  {
+   "file": "quota.py",
+   "old": "    \"\"\"Human readable limits for error pages.\"\"\"\n",
+   "new": "    \"\"\"Human readable limits for error pages and API documentation.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "quota.py",
+   "old": "    left = total_budget - used_bytes\n    return left if left > 0 else 0\n",
+   "new": "    return max(total_budget - used_bytes, 0)\n"
+  }
+ ],
+ [
+  {
+   "file": "paths.py",
+   "old": "    base = os.path.basename(name)\n    dot = base.rfind(\".\")\n    return base[dot:].lower() if dot > 0 else \"\"\n",
+   "new": "    base = os.path.basename(name)\n    dot = base.rfind(\".\")\n    if dot <= 0:  # no dot, or a dot-file such as .bashrc\n        return \"\"\n    return base[dot:].lower()\n"
+  }
+ ],
+ [
+  {
+   "file": "paths.py",
+   "old": "    parts = [part for part in name.split(\"/\") if part]\n    return any(part.startswith(\".\") for part in parts)\n",
+   "new": "    return any(part.startswith(\".\") for part in name.split(\"/\") if part)\n"
+  }
+ ],
+ [
+  {
+   "file": "store.py",
+   "old": "\"\"\"Flat file store with name and quota checks.\"\"\"\n",
+   "new": "\"\"\"Flat file store with name and quota checks.\n\nEvery public method resolves names through safe_join first.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "store.py",
+   "old": "    def names(self):\n        return sorted(os.listdir(self.root))\n",
+   "new": "    def names(self):\n        \"\"\"Stored file names, sorted.\"\"\"\n        return sorted(os.listdir(self.root))\n"
+  }
+ ],
+ [
+  {
+   "file": "store.py",
+   "old": "    def load(self, name):\n        with open(safe_join(self.root, name), \"rb\") as fh:\n            return fh.read()\n",
+   "new": "    def load(self, name):\n        path = safe_join(self.root, name)\n        with open(path, \"rb\") as fh:\n            return fh.read()\n"
+  }
+ ],
+ [
+  {
+   "file": "store.py",
+   "old": "    def delete(self, name):\n        os.remove(safe_join(self.root, name))\n",
+   "new": "    def delete(self, name):\n        \"\"\"Remove a stored file; FileNotFoundError when it does not exist.\"\"\"\n        os.remove(safe_join(self.root, name))\n"
+  }
+ ],
+ [
+  {
+   "file": "store.py",
+   "old": "        sizes = [os.path.getsize(os.path.join(self.root, n)) for n in self.names()]\n        return len(sizes), sum(sizes)\n",
+   "new": "        sizes = []\n        for stored in self.names():\n            sizes.append(os.path.getsize(os.path.join(self.root, stored)))\n        return len(sizes), sum(sizes)\n"
+  }
+ ],
+ [
+  {
+   "file": "handlers.py",
+   "old": "\"\"\"HTTP-ish handlers returning (status, body).\"\"\"\n",
+   "new": "\"\"\"HTTP-ish handlers returning (status, body).\n\nStatus codes: 201 saved, 204 removed, 400 bad name, 404 missing, 413 over quota.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "handlers.py",
+   "old": "    return 201, \"saved\"\n",
+   "new": "    return 201, \"saved\"  # a fixed word so clients can match on it\n"
+  }
+ ],
+ [
+  {
+   "file": "handlers.py",
+   "old": "    return 200, \"\\n\".join(store.names())\n",
+   "new": "    names = store.names()\n    return 200, \"\\n\".join(names)\n"
+  }
+ ],
+ [
+  {
+   "file": "handlers.py",
+   "old": "def remove(store, name):\n    try:",
+   "new": "def remove(store, name):\n    \"\"\"Delete a stored file.\"\"\"\n    try:"
+  }
+ ],
+ [
+  {
+   "file": "names.py",
+   "old": "\"\"\"Display names for stored files.\"\"\"\n",
+   "new": "\"\"\"Display names for stored files; never use these as paths.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "names.py",
+   "old": "    cleaned = SAFE_RE.sub(\"_\", name).strip(\"_\") or \"unnamed\"\n",
+   "new": "    cleaned = SAFE_RE.sub(\"_\", name).strip(\"_\")\n    if not cleaned:\n        return \"unnamed\"\n"
+  }
+ ],
+ [
+  {
+   "file": "names.py",
+   "old": "    keep = (limit - 3) // 2\n    return cleaned[:keep] + \"...\" + cleaned[-keep:]\n",
+   "new": "    ellipsis = \"...\"\n    keep = (limit - len(ellipsis)) // 2\n    return cleaned[:keep] + ellipsis + cleaned[-keep:]\n"
+  }
+ ],
+ [
+  {
+   "file": "names.py",
+   "old": "    n = 2\n    while \"%s-%d%s%s\" % (stem, n, dot, ext) in taken:\n        n += 1\n    return \"%s-%d%s%s\" % (stem, n, dot, ext)\n",
+   "new": "    n = 2\n    candidate = \"%s-%d%s%s\" % (stem, n, dot, ext)\n    while candidate in taken:\n        n += 1\n        candidate = \"%s-%d%s%s\" % (stem, n, dot, ext)\n    return candidate\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "\"\"\"Usage summaries.\"\"\"\n",
+   "new": "\"\"\"Usage summaries for the admin page.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "    return \"%d/%d files, %d/%d bytes\" % (count, MAX_FILES, size, MAX_FILES * MAX_BYTES)\n",
+   "new": "    budget = MAX_FILES * MAX_BYTES\n    return \"%d/%d files, %d/%d bytes\" % (count, MAX_FILES, size, budget)\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "def percent_full(count):\n    return int(100 * count / MAX_FILES)\n",
+   "new": "def percent_full(count):\n    \"\"\"Whole percent of the file quota in use.\"\"\"\n    return int(100 * count / MAX_FILES)\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "A flat, quota-limited file store for user uploads, standard library only.\n",
+   "new": "A flat, quota-limited file store for user uploads, standard library only.\nThere are no sub-directories: a stored name is a single path under the root.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- Errors map to 400 (bad name), 404 (missing), 413 (quota).\n",
+   "new": "- Errors map to 400 (bad name), 404 (missing), 413 (quota).\n- Deleting a file frees its slot immediately.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- `names.py` makes display names safe; `report.py` formats usage.\n",
+   "new": "- `names.py` makes display names safe for logs and pages.\n- `report.py` formats usage for the admin page.\n"
+  }
+ ]
+]

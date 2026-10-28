@@ -4,6 +4,6 @@
   "class": "removed-validation",
   "test_module": "test_wallet",
   "file": "accounts.py",
-  "start": 34,
-  "end": 35
+  "start": 37,
+  "end": 38
 }

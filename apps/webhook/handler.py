@@ -16,3 +16,9 @@ def handle(secret, headers, body):
         return 400, "bad json"
     kind = event.get("type", "unknown") if isinstance(event, dict) else "unknown"
     return 200, "received " + str(kind)
+
+
+def describe_status(status):
+    """Reason phrase for the statuses handle() can return."""
+    phrases = {200: "OK", 400: "Bad Request", 401: "Unauthorized", 500: "Server Error"}
+    return phrases.get(status, "Unknown")

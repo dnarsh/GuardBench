@@ -2,8 +2,10 @@ import threading
 import unittest
 
 import limiter as limiter_module
-from api import handle
+from api import handle, headers_for
+from keys import client_key, split_key
 from limiter import RateLimiter
+from stats import Stats
 
 
 class Clock:
@@ -61,6 +63,29 @@ class LimiterTests(unittest.TestCase):
         finally:
             limiter_module._checkpoint = original
         self.assertEqual(sum(results), 1)
+
+
+class HelperTests(unittest.TestCase):
+    def test_remaining_reset_and_headers(self):
+        lim = RateLimiter(limit=3, clock=Clock())
+        lim.allow("a")
+        self.assertEqual(lim.remaining("a"), 2)
+        self.assertEqual(headers_for(lim, "a"), {"X-RateLimit-Limit": "3", "X-RateLimit-Remaining": "2"})
+        lim.reset("a")
+        self.assertEqual(lim.remaining("a"), 3)
+        self.assertEqual(lim.store.total(), 0)
+
+    def test_client_keys(self):
+        self.assertEqual(client_key("::FFFF:1.2.3.4"), "ip:1.2.3.4")
+        self.assertEqual(client_key("1.2.3.4", user=" Ann "), "user:ann")
+        self.assertEqual(split_key("user:ann"), ("user", "ann"))
+
+    def test_stats(self):
+        s = Stats()
+        self.assertEqual(s.ratio_limited(), 0.0)
+        for ok in (True, True, False, False):
+            s.record(ok)
+        self.assertEqual(s.summary(), "allowed=2 limited=2 ratio=0.50")
 
 
 if __name__ == "__main__":

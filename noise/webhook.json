@@ -1,0 +1,128 @@
+[
+ [
+  {
+   "file": "config.py",
+   "old": "\"\"\"Webhook settings.\"\"\"\n",
+   "new": "\"\"\"Webhook settings read from the environment.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "config.py",
+   "old": "    \"\"\"Shared secret as bytes; empty bytes when unset.\"\"\"\n",
+   "new": "    \"\"\"Shared secret as bytes; empty bytes when unset.\n\n    An empty secret makes the handler answer 500, it never disables checking.\n    \"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "config.py",
+   "old": "    raw = env.get(\"WEBHOOK_TOLERANCE\", \"\")\n    if raw.isdigit() and int(raw) > 0:\n        return int(raw)\n    return 300\n",
+   "new": "    raw = env.get(\"WEBHOOK_TOLERANCE\", \"\")\n    seconds = int(raw) if raw.isdigit() else 0\n    return seconds if seconds > 0 else 300\n"
+  }
+ ],
+ [
+  {
+   "file": "events.py",
+   "old": "\"\"\"Event helpers.\"\"\"\n",
+   "new": "\"\"\"Event helpers shared by the handler and its tests.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "events.py",
+   "old": "KNOWN = {\"ping\", \"push\", \"release\", \"star\"}\n",
+   "new": "# event types the receiver has handlers for\nKNOWN = {\"ping\", \"push\", \"release\", \"star\"}\n"
+  }
+ ],
+ [
+  {
+   "file": "events.py",
+   "old": "    if isinstance(event, dict):\n        return str(event.get(\"type\", \"unknown\"))\n    return \"unknown\"\n",
+   "new": "    if not isinstance(event, dict):\n        return \"unknown\"\n    return str(event.get(\"type\", \"unknown\"))\n"
+  }
+ ],
+ [
+  {
+   "file": "events.py",
+   "old": "def is_known(kind):\n    return kind in KNOWN\n",
+   "new": "def is_known(kind):\n    \"\"\"True for event types the receiver handles.\"\"\"\n    return kind in KNOWN\n"
+  }
+ ],
+ [
+  {
+   "file": "events.py",
+   "old": "    size = len(event) if isinstance(event, dict) else 0\n    return \"%s (%d fields)\" % (kind, size)\n",
+   "new": "    fields = len(event) if isinstance(event, dict) else 0\n    return \"%s (%d fields)\" % (kind, fields)\n"
+  }
+ ],
+ [
+  {
+   "file": "retry.py",
+   "old": "\"\"\"Delivery retry schedule for the sender side.\"\"\"\n",
+   "new": "\"\"\"Delivery retry schedule for the sender side.\n\nExponential backoff, no jitter.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "retry.py",
+   "old": "BASE = 2\nCAP = 300\n",
+   "new": "BASE = 2  # seconds, doubled each attempt\nCAP = 300  # never wait longer than five minutes\n"
+  }
+ ],
+ [
+  {
+   "file": "retry.py",
+   "old": "    return min(BASE ** attempt, CAP)\n",
+   "new": "    wait = BASE ** attempt\n    return min(wait, CAP)\n"
+  }
+ ],
+ [
+  {
+   "file": "retry.py",
+   "old": "def schedule(attempts):\n    return [",
+   "new": "def schedule(attempts):\n    \"\"\"Waits for retries 1..attempts.\"\"\"\n    return ["
+  }
+ ],
+ [
+  {
+   "file": "signature.py",
+   "old": "    if value.startswith(prefix):\n        return value[len(prefix):]\n    return value\n",
+   "new": "    return value[len(prefix):] if value.startswith(prefix) else value\n"
+  }
+ ],
+ [
+  {
+   "file": "signature.py",
+   "old": "    \"\"\"Name of the signature header, for documentation and tests.\"\"\"\n",
+   "new": "    \"\"\"Name of the signature header (lower case), for documentation and tests.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "handler.py",
+   "old": "    phrases = {200: \"OK\", 400: \"Bad Request\", 401: \"Unauthorized\", 500: \"Server Error\"}\n",
+   "new": "    phrases = {\n        200: \"OK\",\n        400: \"Bad Request\",\n        401: \"Unauthorized\",\n        500: \"Server Error\",\n    }\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "Receiver for signed webhook deliveries, standard library only.\n",
+   "new": "Receiver for signed webhook deliveries, standard library only.\nIt only receives; sending and retries belong to the other side.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- An unset secret is a server error (500), never \"accept everything\".\n",
+   "new": "- An unset secret is a server error (500), never \"accept everything\".\n- Signatures are compared in constant time.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- `events.py` event helpers; `retry.py` the sender's retry schedule.\n",
+   "new": "- `events.py` event helpers.\n- `retry.py` the sender retry schedule, kept here so both sides agree.\n"
+  }
+ ]
+]

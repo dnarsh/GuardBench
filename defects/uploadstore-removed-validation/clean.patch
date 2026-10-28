@@ -1,6 +1,105 @@
+--- a/README.md
++++ b/README.md
+@@ -1,6 +1,7 @@
+ # uploadstore
+ 
+ A flat, quota-limited file store for user uploads, standard library only.
++There are no sub-directories: a stored name is a single path under the root.
+ 
+ ## Modules
+ 
+@@ -8,13 +9,15 @@
+ - `paths.py` resolves user supplied names safely inside the root.
+ - `quota.py` limits the number of files and the size of each file.
+ - `handlers.py` maps store errors to HTTP-style status codes.
+-- `names.py` makes display names safe; `report.py` formats usage.
++- `names.py` makes display names safe for logs and pages.
++- `report.py` formats usage for the admin page.
+ 
+ ## Rules
+ 
+ - A name that would leave the storage root is rejected before anything is written.
+ - Exactly `MAX_FILES` files and `MAX_BYTES` bytes per file are allowed, one more is not.
+ - Errors map to 400 (bad name), 404 (missing), 413 (quota).
++- Deleting a file frees its slot immediately.
+ 
+ ## Tests
+ 
+--- a/handlers.py
++++ b/handlers.py
+@@ -1,4 +1,7 @@
+-"""HTTP-ish handlers returning (status, body)."""
++"""HTTP-ish handlers returning (status, body).
++
++Status codes: 201 saved, 204 removed, 400 bad name, 404 missing, 413 over quota.
++"""
+ from quota import QuotaError
+ 
+ 
+@@ -9,7 +12,7 @@
+         return 413, str(e)
+     except ValueError as e:
+         return 400, str(e)
+-    return 201, "saved"
++    return 201, "saved"  # a fixed word so clients can match on it
+ 
+ 
+ def download(store, name):
+@@ -23,10 +26,12 @@
+ 
+ def listing(store):
+     """(200, stored names joined by newlines)."""
+-    return 200, "\n".join(store.names())
++    names = store.names()
++    return 200, "\n".join(names)
+ 
+ 
+ def remove(store, name):
++    """Delete a stored file."""
+     try:
+         store.delete(name)
+     except ValueError as e:
+--- a/names.py
++++ b/names.py
+@@ -1,4 +1,4 @@
+-"""Display names for stored files."""
++"""Display names for stored files; never use these as paths."""
+ import re
+ 
+ SAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
+@@ -6,11 +6,14 @@
+ 
+ def display_name(name, limit=40):
+     """Name made safe for logs and HTML: unsafe runs become '_', long names are cut in the middle."""
+-    cleaned = SAFE_RE.sub("_", name).strip("_") or "unnamed"
++    cleaned = SAFE_RE.sub("_", name).strip("_")
++    if not cleaned:
++        return "unnamed"
+     if len(cleaned) <= limit:
+         return cleaned
+-    keep = (limit - 3) // 2
+-    return cleaned[:keep] + "..." + cleaned[-keep:]
++    ellipsis = "..."
++    keep = (limit - len(ellipsis)) // 2
++    return cleaned[:keep] + ellipsis + cleaned[-keep:]
+ 
+ 
+ def unique_name(name, taken):
+@@ -19,7 +22,9 @@
+         return name
+     stem, dot, ext = name.partition(".")
+     n = 2
+-    while "%s-%d%s%s" % (stem, n, dot, ext) in taken:
++    candidate = "%s-%d%s%s" % (stem, n, dot, ext)
++    while candidate in taken:
+         n += 1
+-    return "%s-%d%s%s" % (stem, n, dot, ext)
++        candidate = "%s-%d%s%s" % (stem, n, dot, ext)
++    return candidate
+ 
 --- a/paths.py
 +++ b/paths.py
-@@ -8,6 +8,6 @@
+@@ -8,7 +8,7 @@
          raise ValueError("invalid name")
      root = os.path.realpath(root)
      full = os.path.realpath(os.path.join(root, name))
@@ -8,3 +107,64 @@
 +    if full != root and not full.startswith(root + os.sep):
          raise ValueError("path escapes storage root")
      return full
+ 
+@@ -22,6 +22,5 @@
+ 
+ def is_hidden(name):
+     """True when any path component starts with a dot."""
+-    parts = [part for part in name.split("/") if part]
+-    return any(part.startswith(".") for part in parts)
++    return any(part.startswith(".") for part in name.split("/") if part)
+ 
+--- a/report.py
++++ b/report.py
+@@ -1,13 +1,15 @@
+-"""Usage summaries."""
++"""Usage summaries for the admin page."""
+ from quota import MAX_BYTES, MAX_FILES
+ 
+ 
+ def usage_line(count, size):
+     """'2/3 files, 100/3072 bytes'."""
+-    return "%d/%d files, %d/%d bytes" % (count, MAX_FILES, size, MAX_FILES * MAX_BYTES)
++    budget = MAX_FILES * MAX_BYTES
++    return "%d/%d files, %d/%d bytes" % (count, MAX_FILES, size, budget)
+ 
+ 
+ def percent_full(count):
++    """Whole percent of the file quota in use."""
+     return int(100 * count / MAX_FILES)
+ 
+ 
+--- a/store.py
++++ b/store.py
+@@ -1,4 +1,7 @@
+-"""Flat file store with name and quota checks."""
++"""Flat file store with name and quota checks.
++
++Every public method resolves names through safe_join first.
++"""
+ import os
+ 
+ from paths import safe_join
+@@ -21,14 +24,18 @@
+         return path
+ 
+     def load(self, name):
+-        with open(safe_join(self.root, name), "rb") as fh:
++        path = safe_join(self.root, name)
++        with open(path, "rb") as fh:
+             return fh.read()
+ 
+     def delete(self, name):
++        """Remove a stored file; FileNotFoundError when it does not exist."""
+         os.remove(safe_join(self.root, name))
+ 
+     def usage(self):
+         """(file count, total bytes) of everything stored."""
+-        sizes = [os.path.getsize(os.path.join(self.root, n)) for n in self.names()]
++        sizes = []
++        for stored in self.names():
++            sizes.append(os.path.getsize(os.path.join(self.root, stored)))
+         return len(sizes), sum(sizes)
+ 

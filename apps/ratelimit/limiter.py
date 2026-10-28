@@ -26,3 +26,14 @@ class RateLimiter:
             _checkpoint()
             self.store.incr(key, now)
             return True
+
+    def remaining(self, key):
+        """Requests left for key in the current window."""
+        with self._lock:
+            used = self.store.count(key, self.clock())
+        return max(self.limit - used, 0)
+
+    def reset(self, key):
+        """Forget the counts for key in every window."""
+        with self._lock:
+            self.store.forget(key)

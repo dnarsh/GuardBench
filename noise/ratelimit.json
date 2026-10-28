@@ -1,0 +1,170 @@
+[
+ [
+  {
+   "file": "limiter.py",
+   "old": "\"\"\"Thread-safe fixed-window rate limiter.\"\"\"\n",
+   "new": "\"\"\"Thread-safe fixed-window rate limiter.\n\nOne lock guards every key; fine for a single process, not for a cluster.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "limiter.py",
+   "old": "    \"\"\"No-op hook between the check and the update; tests use it to interleave threads.\"\"\"\n",
+   "new": "    \"\"\"No-op hook between the check and the update.\n\n    Tests replace it to force two threads to meet at exactly this point.\n    \"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "limiter.py",
+   "old": "        \"\"\"Forget the counts for key in every window.\"\"\"\n",
+   "new": "        \"\"\"Forget the counts for key in every window; used when a client is unblocked.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "store.py",
+   "old": "\"\"\"Fixed-window request counters kept in memory.\"\"\"\n",
+   "new": "\"\"\"Fixed-window request counters kept in memory.\n\nA bucket is (key, window number); old buckets stay until prune() drops them.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "store.py",
+   "old": "    def _bucket(self, key, now):\n        return",
+   "new": "    def _bucket(self, key, now):\n        \"\"\"Bucket id of key at time now.\"\"\"\n        return"
+  }
+ ],
+ [
+  {
+   "file": "store.py",
+   "old": "        bucket = self._bucket(key, now)\n        self._counts[bucket] = self._counts.get(bucket, 0) + 1\n        return self._counts[bucket]\n",
+   "new": "        bucket = self._bucket(key, now)\n        total = self._counts.get(bucket, 0) + 1\n        self._counts[bucket] = total\n        return total\n"
+  }
+ ],
+ [
+  {
+   "file": "store.py",
+   "old": "        current = int(now // self.window)\n",
+   "new": "        current = self._bucket(\"\", now)[1]\n"
+  }
+ ],
+ [
+  {
+   "file": "store.py",
+   "old": "    def forget(self, key):\n",
+   "new": "    def forget(self, key):\n        \"\"\"Drop every bucket of key.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "store.py",
+   "old": "        \"\"\"Requests counted across all keys and windows still held.\"\"\"\n",
+   "new": "        \"\"\"Requests counted across all keys and all windows still held in memory.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "api.py",
+   "old": "    \"\"\"Return (status, body).\"\"\"\n",
+   "new": "    \"\"\"Return (status, body); 429 when the limiter refuses the client.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "api.py",
+   "old": "    return 200, \"ok \" + path\n",
+   "new": "    return 200, \"ok %s\" % path\n"
+  }
+ ],
+ [
+  {
+   "file": "api.py",
+   "old": "    remaining = limiter.remaining(client_ip)\n    return {\"X-RateLimit-Limit\": str(limiter.limit), \"X-RateLimit-Remaining\": str(remaining)}\n",
+   "new": "    left = limiter.remaining(client_ip)\n    return {\"X-RateLimit-Limit\": str(limiter.limit), \"X-RateLimit-Remaining\": str(left)}\n"
+  }
+ ],
+ [
+  {
+   "file": "config.py",
+   "old": "\"\"\"Limiter defaults.\"\"\"\n",
+   "new": "\"\"\"Limiter defaults; override per limiter instance.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "config.py",
+   "old": "DEFAULT_WINDOW = 60  # seconds\n",
+   "new": "DEFAULT_WINDOW = 60  # seconds per window\n"
+  }
+ ],
+ [
+  {
+   "file": "keys.py",
+   "old": "    \"\"\"Key a request by user when known, else by IP; IPv4-mapped IPv6 maps to IPv4.\"\"\"\n",
+   "new": "    \"\"\"Key a request by user when known, else by IP.\n\n    IPv4-mapped IPv6 addresses (::ffff:a.b.c.d) are folded onto plain IPv4.\n    \"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "keys.py",
+   "old": "    ip = ip.strip().lower()\n    if ip.startswith(\"::ffff:\"):\n        ip = ip[7:]\n",
+   "new": "    ip = ip.strip().lower()\n    mapped = \"::ffff:\"\n    if ip.startswith(mapped):\n        ip = ip[len(mapped):]\n"
+  }
+ ],
+ [
+  {
+   "file": "keys.py",
+   "old": "    kind, _, value = key.partition(\":\")\n    return kind, value\n",
+   "new": "    kind, _, value = key.partition(\":\")\n    return (kind, value)\n"
+  }
+ ],
+ [
+  {
+   "file": "stats.py",
+   "old": "\"\"\"Counters of allowed and limited requests.\"\"\"\n",
+   "new": "\"\"\"Counters of allowed and limited requests, for dashboards and tests.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "stats.py",
+   "old": "        if ok:\n            self.allowed += 1\n        else:\n            self.limited += 1\n",
+   "new": "        if not ok:\n            self.limited += 1\n            return\n        self.allowed += 1\n"
+  }
+ ],
+ [
+  {
+   "file": "stats.py",
+   "old": "        if seen == 0:\n            return 0.0\n        return self.limited / seen\n",
+   "new": "        return self.limited / seen if seen else 0.0\n"
+  }
+ ],
+ [
+  {
+   "file": "stats.py",
+   "old": "        return \"allowed=%d limited=%d ratio=%.2f\" % (self.allowed, self.limited, self.ratio_limited())\n",
+   "new": "        ratio = self.ratio_limited()\n        return \"allowed=%d limited=%d ratio=%.2f\" % (self.allowed, self.limited, ratio)\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "Fixed-window request limiter with per-key counters, standard library only.\n",
+   "new": "Fixed-window request limiter with per-key counters, standard library only.\nCounters live in memory, so a restart resets every client.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- Keys are independent of each other.\n",
+   "new": "- Keys are independent of each other.\n- A new window starts a fresh count; counts are never carried over.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- `keys.py` builds limiter keys from IPs and user names; `stats.py` counts outcomes.\n",
+   "new": "- `keys.py` builds limiter keys from IPs and user names.\n- `stats.py` counts allowed and limited requests.\n"
+  }
+ ]
+]

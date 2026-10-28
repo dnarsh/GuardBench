@@ -1,0 +1,166 @@
+[
+ [
+  {
+   "file": "tokens.py",
+   "old": "def _sign(secret, payload):\n    return",
+   "new": "def _sign(secret, payload):\n    \"\"\"Hex HMAC-SHA256 of payload under secret.\"\"\"\n    return"
+  }
+ ],
+ [
+  {
+   "file": "tokens.py",
+   "old": "    raw = \"%s|%s\" % (payload, _sign(secret, payload))\n    return base64.urlsafe_b64encode(raw.encode()).decode()\n",
+   "new": "    blob = \"%s|%s\" % (payload, _sign(secret, payload))\n    return base64.urlsafe_b64encode(blob.encode()).decode()\n"
+  }
+ ],
+ [
+  {
+   "file": "tokens.py",
+   "old": "        user, expires, sig = raw.rsplit(\"|\", 2)\n",
+   "new": "        # the user name may itself contain \"|\", so split from the right\n        user, expires, sig = raw.rsplit(\"|\", 2)\n"
+  }
+ ],
+ [
+  {
+   "file": "tokens.py",
+   "old": "\"\"\"User named in a token without checking the signature; for logging only.\"\"\"",
+   "new": "\"\"\"User named in a token without checking the signature.\n\n    Only for log context; never use the result to make an access decision.\n    \"\"\""
+  }
+ ],
+ [
+  {
+   "file": "audit.py",
+   "old": "        parts = [\"%s=%s\" % kv for kv in sorted(fields.items())]\n",
+   "new": "        parts = [\"%s=%s\" % (key, value) for key, value in sorted(fields.items())]\n"
+  }
+ ],
+ [
+  {
+   "file": "audit.py",
+   "old": "    def last(self, n=5):\n        \"\"\"The n most recent entries, oldest first.\"\"\"\n        return self.entries[-n:]\n",
+   "new": "    def last(self, n=5):\n        \"\"\"The n most recent entries, oldest first.\"\"\"\n        if n <= 0:\n            return []\n        return self.entries[-n:]\n"
+  }
+ ],
+ [
+  {
+   "file": "policy.py",
+   "old": "    \"\"\"Sorted action names a role grants; empty for unknown roles.\"\"\"\n    return sorted(ROLES.get(role, ()))\n",
+   "new": "    \"\"\"Sorted action names a role grants; empty for unknown roles.\"\"\"\n    granted = ROLES.get(role, ())\n    return sorted(granted)\n"
+  }
+ ],
+ [
+  {
+   "file": "policy.py",
+   "old": "    return sorted(role for role, actions in ROLES.items() if action in actions)\n",
+   "new": "    names = [role for role, actions in ROLES.items() if action in actions]\n    return sorted(names)\n"
+  }
+ ],
+ [
+  {
+   "file": "service.py",
+   "old": "import hashlib\n\n",
+   "new": "import hashlib\nimport logging\n\n"
+  },
+  {
+   "file": "service.py",
+   "old": "from tokens import issue, verify\n",
+   "new": "from tokens import issue, verify\n\nlog = logging.getLogger(__name__)\n"
+  },
+  {
+   "file": "service.py",
+   "old": "        return verify(self.secret, token)\n",
+   "new": "        log.debug(\"whoami lookup\")\n        return verify(self.secret, token)\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "    \"\"\"'event k=v k2=v2' -> (event, {k: v}).\"\"\"\n",
+   "new": "    \"\"\"Split an audit line 'event k=v k2=v2' into (event, {k: v}).\n\n    Values never contain spaces because AuditLog.record joins fields with one.\n    \"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "    counts = Counter()\n    for line in entries:\n        event, _ = parse_entry(line)\n        counts[event] += 1\n    return dict(counts)\n",
+   "new": "    counts = Counter(parse_entry(line)[0] for line in entries)\n    return dict(counts)\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "    users = set()\n    for line in entries:\n        event, fields = parse_entry(line)\n        if event == \"login_failed\":\n            users.add(fields.get(\"user\", \"?\"))\n    return sorted(users)\n",
+   "new": "    parsed = [parse_entry(line) for line in entries]\n    return sorted({fields.get(\"user\", \"?\") for event, fields in parsed if event == \"login_failed\"})\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "    result = []\n    for line in entries:\n        event, fields = parse_entry(line)\n        if event == \"deny\" and \"action\" in fields:\n            result.append((fields.get(\"user\", \"?\"), fields[\"action\"]))\n    return result\n",
+   "new": "    denied = []\n    for line in entries:\n        event, fields = parse_entry(line)\n        if event == \"deny\" and \"action\" in fields:\n            denied.append((fields.get(\"user\", \"?\"), fields[\"action\"]))\n    return denied\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "    counts = count_by_event(entries)\n    lines = [\"%-14s %d\"",
+   "new": "    counts = count_by_event(entries)\n    # one row per event, widest event name is login_failed\n    lines = [\"%-14s %d\""
+  }
+ ],
+ [
+  {
+   "file": "users.py",
+   "old": "MIN_PASSWORD = 10\n",
+   "new": "MIN_PASSWORD = 10  # characters\nMAX_NAME = 32\n"
+  }
+ ],
+ [
+  {
+   "file": "users.py",
+   "old": "    cleaned = name.strip().lower()\n",
+   "new": "    cleaned = str(name).strip().lower()\n"
+  }
+ ],
+ [
+  {
+   "file": "users.py",
+   "old": "    \"\"\"List of reasons the password is too weak (empty list when acceptable).\"\"\"\n",
+   "new": "    \"\"\"List of reasons the password is too weak (empty list when acceptable).\n\n    The rules are deliberately small: length, one capital, one digit.\n    \"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "users.py",
+   "old": "        raise ValueError(\"weak password: \" + \", \".join(problems))\n",
+   "new": "        raise ValueError(\"weak password: %s\" % \", \".join(problems))\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- `report.py` summarises the trail; `users.py` validates user records.\n",
+   "new": "- `report.py` summarises the trail (counts per event, failed logins, denied actions).\n- `users.py` validates user names and password strength before a record is created.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- Tokens expire; the expiry is part of the signed payload.\n",
+   "new": "- Tokens expire; the expiry is part of the signed payload, so it cannot be extended.\n- The audit trail is in memory only and is lost on restart.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "Run `python -m unittest test_authgate` from this directory.\n",
+   "new": "Run `python -m unittest test_authgate` from this directory.\nNo third-party packages are needed.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "Token login and role based authorisation, standard library only.\n",
+   "new": "Token login and role based authorisation, standard library only.\nIt is a teaching-size service, not a drop-in auth system.\n"
+  }
+ ]
+]

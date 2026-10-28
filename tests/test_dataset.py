@@ -4,6 +4,8 @@ import collections
 import pytest
 
 from guardbench import cli
+from guardbench import patch as P
+from guardbench.baselines import random_hit_probability
 from guardbench.defects import CLASSES, load_all
 from guardbench.validate import validate_defect
 
@@ -40,3 +42,20 @@ def test_flag_every_hunk_baseline_finds_everything_and_alarms_on_everything(caps
     assert cli.main(["score", "--reviewer", "hunk-all", "--json"]) == 0
     out = capsys.readouterr().out
     assert '"found": %d' % len(DEFECTS) in out
+
+
+@pytest.mark.parametrize("d", DEFECTS, ids=lambda d: d.id)
+def test_every_item_is_a_realistic_multi_hunk_multi_file_change(d):
+    for diff in (d.bug_patch, d.clean_patch):
+        files = P.parse(diff)
+        hunks = sum(len(h) for _, h in files)
+        assert 8 <= hunks <= 25, (d.id, hunks)
+        assert 3 <= len(files) <= 6, (d.id, len(files))
+    defect_hunks = [a for a in P.anchors(d.bug_patch) if a[0] == d.file and d.start - 3 <= a[1] <= d.end + 3]
+    assert len(defect_hunks) == 1, "the defect must be exactly one hunk"
+
+
+def test_random_baseline_stays_far_from_ceiling():
+    """Kill criterion 3 guard: random must not find more than 70% of dev defects."""
+    p = [random_hit_probability(d.bug_patch, d.file, d.start, d.end) for d in DEFECTS]
+    assert sum(p) / len(p) < 0.15

@@ -15,3 +15,16 @@ def verify(secret, headers, body):
     if supplied is None:
         return False
     return hmac.compare_digest(supplied, compute(secret, body))
+
+
+def header_name():
+    """Name of the signature header, for documentation and tests."""
+    return HEADER
+
+
+def strip_prefix(value):
+    """'sha256=abc' -> 'abc'; other values come back unchanged."""
+    prefix = "sha256="
+    if value.startswith(prefix):
+        return value[len(prefix):]
+    return value

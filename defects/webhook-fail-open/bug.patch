@@ -1,9 +1,146 @@
+--- a/README.md
++++ b/README.md
+@@ -1,18 +1,21 @@
+ # webhook
+ 
+ Receiver for signed webhook deliveries, standard library only.
++It only receives; sending and retries belong to the other side.
+ 
+ ## Modules
+ 
+ - `signature.py` computes and checks HMAC-SHA256 request signatures.
+ - `handler.py` verifies the signature first, then parses the event.
+ - `config.py` reads the shared secret and the timestamp tolerance from the environment.
+-- `events.py` event helpers; `retry.py` the sender's retry schedule.
++- `events.py` event helpers.
++- `retry.py` the sender retry schedule, kept here so both sides agree.
+ 
+ ## Rules
+ 
+ - No valid signature, no processing: missing, malformed and wrong signatures are rejected with 401.
+ - An unset secret is a server error (500), never "accept everything".
++- Signatures are compared in constant time.
+ - Error responses never contain the secret or the expected signature.
+ 
+ ## Tests
+--- a/config.py
++++ b/config.py
+@@ -1,9 +1,12 @@
+-"""Webhook settings."""
++"""Webhook settings read from the environment."""
+ import os
+ 
+ 
+ def load_secret(env=None):
+-    """Shared secret as bytes; empty bytes when unset."""
++    """Shared secret as bytes; empty bytes when unset.
++
++    An empty secret makes the handler answer 500, it never disables checking.
++    """
+     env = os.environ if env is None else env
+     return env.get("WEBHOOK_SECRET", "").encode()
+ 
+@@ -12,7 +15,6 @@
+     """Seconds a delivery timestamp may be off; 300 unless WEBHOOK_TOLERANCE is a positive number."""
+     env = os.environ if env is None else env
+     raw = env.get("WEBHOOK_TOLERANCE", "")
+-    if raw.isdigit() and int(raw) > 0:
+-        return int(raw)
+-    return 300
++    seconds = int(raw) if raw.isdigit() else 0
++    return seconds if seconds > 0 else 300
+ 
+--- a/events.py
++++ b/events.py
+@@ -1,21 +1,23 @@
+-"""Event helpers."""
++"""Event helpers shared by the handler and its tests."""
++# event types the receiver has handlers for
+ KNOWN = {"ping", "push", "release", "star"}
+ 
+ 
+ def event_type(event):
+     """Type string of a parsed event, or 'unknown'."""
+-    if isinstance(event, dict):
+-        return str(event.get("type", "unknown"))
+-    return "unknown"
++    if not isinstance(event, dict):
++        return "unknown"
++    return str(event.get("type", "unknown"))
+ 
+ 
+ def is_known(kind):
++    """True for event types the receiver handles."""
+     return kind in KNOWN
+ 
+ 
+ def summarize(event):
+     """Short log line for an event; never includes the payload body."""
+     kind = event_type(event)
+-    size = len(event) if isinstance(event, dict) else 0
+-    return "%s (%d fields)" % (kind, size)
++    fields = len(event) if isinstance(event, dict) else 0
++    return "%s (%d fields)" % (kind, fields)
+ 
+--- a/handler.py
++++ b/handler.py
+@@ -20,6 +20,11 @@
+ 
+ def describe_status(status):
+     """Reason phrase for the statuses handle() can return."""
+-    phrases = {200: "OK", 400: "Bad Request", 401: "Unauthorized", 500: "Server Error"}
++    phrases = {
++        200: "OK",
++        400: "Bad Request",
++        401: "Unauthorized",
++        500: "Server Error",
++    }
+     return phrases.get(status, "Unknown")
+ 
+--- a/retry.py
++++ b/retry.py
+@@ -1,15 +1,20 @@
+-"""Delivery retry schedule for the sender side."""
+-BASE = 2
+-CAP = 300
++"""Delivery retry schedule for the sender side.
++
++Exponential backoff, no jitter.
++"""
++BASE = 2  # seconds, doubled each attempt
++CAP = 300  # never wait longer than five minutes
+ 
+ 
+ def delay(attempt):
+     """Seconds to wait before retry number `attempt` (1-based), doubling up to CAP."""
+     if attempt < 1:
+         raise ValueError("attempt starts at 1")
+-    return min(BASE ** attempt, CAP)
++    wait = BASE ** attempt
++    return min(wait, CAP)
+ 
+ 
+ def schedule(attempts):
++    """Waits for retries 1..attempts."""
+     return [delay(n) for n in range(1, attempts + 1)]
+ 
 --- a/signature.py
 +++ b/signature.py
-@@ -13,5 +13,5 @@
+@@ -13,7 +13,7 @@
      """True only when the request carries a valid signature for `body`."""
      supplied = {k.lower(): v for k, v in headers.items()}.get(HEADER)
      if supplied is None:
 -        return False
 +        return True
      return hmac.compare_digest(supplied, compute(secret, body))
+ 
+ 
+@@ -25,7 +25,5 @@
+ def strip_prefix(value):
+     """'sha256=abc' -> 'abc'; other values come back unchanged."""
+     prefix = "sha256="
+-    if value.startswith(prefix):
+-        return value[len(prefix):]
+-    return value
++    return value[len(prefix):] if value.startswith(prefix) else value
+ 

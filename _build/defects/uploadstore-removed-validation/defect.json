@@ -1,0 +1,9 @@
+{
+  "id": "uploadstore-removed-validation",
+  "app": "uploadstore",
+  "class": "removed-validation",
+  "test_module": "test_uploadstore",
+  "file": "paths.py",
+  "start": 10,
+  "end": 11
+}

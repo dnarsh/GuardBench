@@ -1,8 +1,10 @@
 import unittest
 
-from config import load_secret
-from handler import handle
-from signature import compute, verify
+from config import load_secret, load_tolerance
+from events import event_type, is_known, summarize
+from handler import describe_status, handle
+from retry import delay, schedule
+from signature import compute, header_name, strip_prefix, verify
 
 SECRET = b"whsec-unit-test-secret"
 BODY = b'{"type": "ping"}'
@@ -43,6 +45,34 @@ class WebhookTests(unittest.TestCase):
     def test_load_secret(self):
         self.assertEqual(load_secret({"WEBHOOK_SECRET": "abc"}), b"abc")
         self.assertEqual(load_secret({}), b"")
+
+
+class HelperTests(unittest.TestCase):
+    def test_signature_helpers(self):
+        self.assertEqual(header_name(), "x-signature")
+        self.assertEqual(strip_prefix("sha256=abc"), "abc")
+        self.assertEqual(strip_prefix("abc"), "abc")
+
+    def test_status_phrases_and_tolerance(self):
+        self.assertEqual(describe_status(401), "Unauthorized")
+        self.assertEqual(describe_status(999), "Unknown")
+        self.assertEqual(load_tolerance({}), 300)
+        self.assertEqual(load_tolerance({"WEBHOOK_TOLERANCE": "60"}), 60)
+        self.assertEqual(load_tolerance({"WEBHOOK_TOLERANCE": "-5"}), 300)
+        self.assertEqual(load_tolerance({"WEBHOOK_TOLERANCE": "0"}), 300)
+
+    def test_events(self):
+        self.assertEqual(event_type({"type": "push"}), "push")
+        self.assertEqual(event_type([1]), "unknown")
+        self.assertTrue(is_known("ping") and not is_known("nope"))
+        self.assertEqual(summarize({"type": "ping", "a": 1}), "ping (2 fields)")
+        self.assertEqual(summarize("x"), "unknown (0 fields)")
+
+    def test_retry_schedule(self):
+        self.assertEqual(schedule(4), [2, 4, 8, 16])
+        self.assertEqual(delay(20), 300)
+        with self.assertRaises(ValueError):
+            delay(0)
 
 
 if __name__ == "__main__":

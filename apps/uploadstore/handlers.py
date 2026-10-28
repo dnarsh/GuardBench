@@ -19,3 +19,18 @@ def download(store, name):
         return 400, str(e)
     except FileNotFoundError:
         return 404, "not found"
+
+
+def listing(store):
+    """(200, stored names joined by newlines)."""
+    return 200, "\n".join(store.names())
+
+
+def remove(store, name):
+    try:
+        store.delete(name)
+    except ValueError as e:
+        return 400, str(e)
+    except FileNotFoundError:
+        return 404, "not found"
+    return 204, ""

@@ -18,3 +18,13 @@ class Policy:
             return action in ROLES[role]
         except KeyError:
             return False
+
+
+def describe(role):
+    """Sorted action names a role grants; empty for unknown roles."""
+    return sorted(ROLES.get(role, ()))
+
+
+def roles_for(action):
+    """Roles that grant the action, sorted."""
+    return sorted(role for role, actions in ROLES.items() if action in actions)

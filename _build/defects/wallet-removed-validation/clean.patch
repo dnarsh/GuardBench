@@ -1,0 +1,141 @@
+--- a/README.md
++++ b/README.md
+@@ -8,13 +8,15 @@
+ - `ledger.py` append-only entries; a balance is the sum of an account's entries.
+ - `limits.py` transfer and fee limits.
+ - `api.py` request layer returning (status, message).
+-- `statements.py` text statements; `fees.py` transfer fees.
++- `statements.py` builds text statements per account.
++- `fees.py` computes transfer fees.
+ 
+ ## Rules
+ 
+ - A withdrawal never takes an account below zero, even with concurrent callers.
+ - Transfers must be positive and not above the limit; nothing moves when they are refused.
+ - The ledger is never edited, only appended to.
++- Fees are informational: `fees.py` computes them but `transfer` does not charge them yet.
+ 
+ ## Tests
+ 
+--- a/accounts.py
++++ b/accounts.py
+@@ -1,4 +1,7 @@
+-"""Accounts with overdraft protection."""
++"""Accounts with overdraft protection.
++
++All money movement goes through the ledger; nothing keeps its own balance.
++"""
+ import threading
+ 
+ from ledger import Ledger
+@@ -32,7 +35,7 @@
+             self.ledger.post(name, -amount, "withdraw")
+ 
+     def transfer(self, src, dst, amount):
+-        if amount <= 0:
++        if not isinstance(amount, int) or amount <= 0:
+             raise ValueError("amount must be positive")
+         if amount > MAX_TRANSFER:
+             raise ValueError("amount over limit")
+@@ -45,10 +48,12 @@
+ 
+     def names(self):
+         """All account names, sorted."""
+-        found = {account for account, _, _ in self.ledger.entries}
+-        return sorted(found)
++        return sorted({account for account, _, _ in self.ledger.entries})
+ 
+     def total_held(self):
+-        """Money held across every account."""
+-        return sum(delta for _, delta, _ in self.ledger.entries)
++        """Money held across every account (deposits minus withdrawals)."""
++        total = 0
++        for _, delta, _ in self.ledger.entries:
++            total += delta
++        return total
+ 
+--- a/fees.py
++++ b/fees.py
+@@ -1,4 +1,4 @@
+-"""Transfer fees."""
++"""Transfer fees: a flat percentage above a free threshold."""
+ from limits import FEE_FREE_BELOW
+ 
+ FEE_RATE_PERCENT = 1
+@@ -8,9 +8,11 @@
+     """Whole-unit fee: nothing below FEE_FREE_BELOW, else FEE_RATE_PERCENT percent rounded up."""
+     if amount < FEE_FREE_BELOW:
+         return 0
++    # ceiling division without floats
+     return -(-amount * FEE_RATE_PERCENT // 100)
+ 
+ 
+ def with_fee(amount):
++    """Amount plus its fee."""
+     return amount + fee_for(amount)
+ 
+--- a/ledger.py
++++ b/ledger.py
+@@ -1,4 +1,7 @@
+-"""Append-only ledger; balances are the sum of entries."""
++"""Append-only ledger; balances are the sum of entries.
++
++Entries are (account, delta, memo) tuples and are never edited.
++"""
+ 
+ 
+ class Ledger:
+@@ -9,12 +12,18 @@
+         self.entries.append((account, delta, memo))
+ 
+     def balance(self, account):
++        """Sum of the account deltas; 0 for an account with no entries."""
+         return sum(delta for acct, delta, _ in self.entries if acct == account)
+ 
+     def count(self):
++        """Number of entries posted so far."""
+         return len(self.entries)
+ 
+     def memos(self, account):
+         """Memos of the account's entries, oldest first."""
+-        return [memo for acct, _, memo in self.entries if acct == account]
++        memos = []
++        for acct, _, memo in self.entries:
++            if acct == account:
++                memos.append(memo)
++        return memos
+ 
+--- a/limits.py
++++ b/limits.py
+@@ -1,5 +1,6 @@
+-"""Transfer limits."""
++"""Transfer limits and fee thresholds, in whole currency units."""
+ MAX_TRANSFER = 10000
+-MIN_OPEN_DEPOSIT = 0
++MIN_OPEN_DEPOSIT = 0  # accounts may be opened empty
++# transfers below this amount carry no fee
+ FEE_FREE_BELOW = 100
+ 
+--- a/statements.py
++++ b/statements.py
+@@ -1,17 +1,17 @@
+-"""Account statements."""
++"""Account statements as plain text lines."""
+ 
+ 
+ def format_entry(entry):
+     """One ledger entry as a statement line."""
+     account, delta, memo = entry
+-    sign = "+" if delta >= 0 else "-"
++    sign = "-" if delta < 0 else "+"
+     return "%-8s %s%d %s" % (account, sign, abs(delta), memo)
+ 
+ 
+ def statement(entries, account):
+     """Lines for the account, then a closing balance line."""
+     mine = [entry for entry in entries if entry[0] == account]
+-    lines = [format_entry(entry) for entry in mine]
++    lines = list(map(format_entry, mine))
+     lines.append("balance %d" % sum(entry[1] for entry in mine))
+     return lines
+ 

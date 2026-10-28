@@ -2,9 +2,11 @@ import os
 import tempfile
 import unittest
 
-from handlers import download, upload
-from paths import safe_join
-from quota import MAX_BYTES, MAX_FILES, QuotaError
+from handlers import download, listing, remove, upload
+from names import display_name, unique_name
+from paths import extension, is_hidden, safe_join
+from quota import MAX_BYTES, MAX_FILES, QuotaError, bytes_left, describe_limits
+from report import is_full, percent_full, usage_line
 from store import Store
 
 
@@ -53,6 +55,49 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(download(self.store, "a"), (200, b"x"))
         self.assertEqual(download(self.store, "missing")[0], 404)
         self.assertEqual(download(self.store, "../a")[0], 400)
+
+
+class HelperTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.store = Store(os.path.join(self._tmp.name, "s"))
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_quota_helpers(self):
+        self.assertIn(str(MAX_FILES), describe_limits())
+        self.assertEqual(bytes_left(10, 100), 90)
+        self.assertEqual(bytes_left(500, 100), 0)
+
+    def test_path_helpers(self):
+        self.assertEqual(extension("dir/Photo.JPG"), ".jpg")
+        self.assertEqual(extension(".bashrc"), "")
+        self.assertTrue(is_hidden("a/.secret/b"))
+        self.assertFalse(is_hidden("a/b"))
+
+    def test_delete_usage_listing_and_remove(self):
+        self.store.save("a", b"xx")
+        self.store.save("b", b"yyy")
+        self.assertEqual(self.store.usage(), (2, 5))
+        self.assertEqual(listing(self.store), (200, "a\nb"))
+        self.assertEqual(remove(self.store, "a"), (204, ""))
+        self.assertEqual(remove(self.store, "a")[0], 404)
+        self.assertEqual(remove(self.store, "../a")[0], 400)
+        self.assertEqual(self.store.names(), ["b"])
+
+    def test_names(self):
+        self.assertEqual(display_name("my file<1>.txt"), "my_file_1_.txt")
+        self.assertEqual(display_name("???"), "unnamed")
+        self.assertEqual(len(display_name("x" * 100, limit=20)), 19)
+        self.assertEqual(unique_name("a.txt", {"a.txt"}), "a-2.txt")
+        self.assertEqual(unique_name("a.txt", {"a.txt", "a-2.txt"}), "a-3.txt")
+        self.assertEqual(unique_name("b", set()), "b")
+
+    def test_report(self):
+        self.assertEqual(usage_line(1, 10), "1/%d files, 10/%d bytes" % (MAX_FILES, MAX_FILES * MAX_BYTES))
+        self.assertEqual(percent_full(MAX_FILES), 100)
+        self.assertTrue(is_full(MAX_FILES) and not is_full(MAX_FILES - 1))
 
 
 if __name__ == "__main__":

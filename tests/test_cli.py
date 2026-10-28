@@ -78,3 +78,9 @@ def test_test_split_reads_env_var(root, monkeypatch, capsys):
 def test_hash_prints_tree_hash(root, capsys):
     assert cli.main(["hash", str(root)]) == 0
     assert len(capsys.readouterr().out.strip()) == 64
+
+
+def test_baselines_command_reports_both_baselines(root, capsys):
+    assert cli.main(["baselines", "--root", str(root), "--seeds", "5"]) == 0
+    out = capsys.readouterr().out
+    assert "hunk-all" in out and "random expected recall" in out and "random over 5 seeds" in out

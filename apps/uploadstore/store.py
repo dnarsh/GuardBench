@@ -23,3 +23,11 @@ class Store:
     def load(self, name):
         with open(safe_join(self.root, name), "rb") as fh:
             return fh.read()
+
+    def delete(self, name):
+        os.remove(safe_join(self.root, name))
+
+    def usage(self):
+        """(file count, total bytes) of everything stored."""
+        sizes = [os.path.getsize(os.path.join(self.root, n)) for n in self.names()]
+        return len(sizes), sum(sizes)

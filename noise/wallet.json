@@ -1,0 +1,156 @@
+[
+ [
+  {
+   "file": "accounts.py",
+   "old": "\"\"\"Accounts with overdraft protection.\"\"\"\n",
+   "new": "\"\"\"Accounts with overdraft protection.\n\nAll money movement goes through the ledger; nothing keeps its own balance.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "accounts.py",
+   "old": "        found = {account for account, _, _ in self.ledger.entries}\n        return sorted(found)\n",
+   "new": "        return sorted({account for account, _, _ in self.ledger.entries})\n"
+  }
+ ],
+ [
+  {
+   "file": "accounts.py",
+   "old": "        \"\"\"Money held across every account.\"\"\"\n        return sum(delta for _, delta, _ in self.ledger.entries)\n",
+   "new": "        \"\"\"Money held across every account (deposits minus withdrawals).\"\"\"\n        total = 0\n        for _, delta, _ in self.ledger.entries:\n            total += delta\n        return total\n"
+  }
+ ],
+ [
+  {
+   "file": "ledger.py",
+   "old": "\"\"\"Append-only ledger; balances are the sum of entries.\"\"\"\n",
+   "new": "\"\"\"Append-only ledger; balances are the sum of entries.\n\nEntries are (account, delta, memo) tuples and are never edited.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "ledger.py",
+   "old": "    def balance(self, account):\n        return sum",
+   "new": "    def balance(self, account):\n        \"\"\"Sum of the account deltas; 0 for an account with no entries.\"\"\"\n        return sum"
+  }
+ ],
+ [
+  {
+   "file": "ledger.py",
+   "old": "    def count(self):\n        return len(self.entries)\n",
+   "new": "    def count(self):\n        \"\"\"Number of entries posted so far.\"\"\"\n        return len(self.entries)\n"
+  }
+ ],
+ [
+  {
+   "file": "ledger.py",
+   "old": "        return [memo for acct, _, memo in self.entries if acct == account]\n",
+   "new": "        memos = []\n        for acct, _, memo in self.entries:\n            if acct == account:\n                memos.append(memo)\n        return memos\n"
+  }
+ ],
+ [
+  {
+   "file": "limits.py",
+   "old": "\"\"\"Transfer limits.\"\"\"\n",
+   "new": "\"\"\"Transfer limits and fee thresholds, in whole currency units.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "limits.py",
+   "old": "MIN_OPEN_DEPOSIT = 0\n",
+   "new": "MIN_OPEN_DEPOSIT = 0  # accounts may be opened empty\n"
+  }
+ ],
+ [
+  {
+   "file": "limits.py",
+   "old": "FEE_FREE_BELOW = 100\n",
+   "new": "# transfers below this amount carry no fee\nFEE_FREE_BELOW = 100\n"
+  }
+ ],
+ [
+  {
+   "file": "api.py",
+   "old": "\"\"\"Request layer over the bank.\"\"\"\n",
+   "new": "\"\"\"Request layer over the bank; turns exceptions into status codes.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "api.py",
+   "old": "    return 200, str(bank.balance(name))\n",
+   "new": "    balance = bank.balance(name)\n    return 200, str(balance)\n"
+  }
+ ],
+ [
+  {
+   "file": "api.py",
+   "old": "    except InsufficientFunds:\n        return 402, \"insufficient funds\"\n",
+   "new": "    except InsufficientFunds:\n        # 402 so clients can tell it from a validation error\n        return 402, \"insufficient funds\"\n"
+  }
+ ],
+ [
+  {
+   "file": "statements.py",
+   "old": "\"\"\"Account statements.\"\"\"\n",
+   "new": "\"\"\"Account statements as plain text lines.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "statements.py",
+   "old": "    sign = \"+\" if delta >= 0 else \"-\"\n",
+   "new": "    sign = \"-\" if delta < 0 else \"+\"\n"
+  }
+ ],
+ [
+  {
+   "file": "statements.py",
+   "old": "    lines = [format_entry(entry) for entry in mine]\n",
+   "new": "    lines = list(map(format_entry, mine))\n"
+  }
+ ],
+ [
+  {
+   "file": "fees.py",
+   "old": "\"\"\"Transfer fees.\"\"\"\n",
+   "new": "\"\"\"Transfer fees: a flat percentage above a free threshold.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "fees.py",
+   "old": "    return -(-amount * FEE_RATE_PERCENT // 100)\n",
+   "new": "    # ceiling division without floats\n    return -(-amount * FEE_RATE_PERCENT // 100)\n"
+  }
+ ],
+ [
+  {
+   "file": "fees.py",
+   "old": "def with_fee(amount):\n    return amount + fee_for(amount)\n",
+   "new": "def with_fee(amount):\n    \"\"\"Amount plus its fee.\"\"\"\n    return amount + fee_for(amount)\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "A small bank: accounts, an append-only ledger, transfers with limits. Standard library only.\n",
+   "new": "A small bank: accounts, an append-only ledger, transfers with limits. Standard library only.\nAmounts are integers in the smallest currency unit.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- The ledger is never edited, only appended to.\n",
+   "new": "- The ledger is never edited, only appended to.\n- Fees are informational: `fees.py` computes them but `transfer` does not charge them yet.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- `statements.py` text statements; `fees.py` transfer fees.\n",
+   "new": "- `statements.py` builds text statements per account.\n- `fees.py` computes transfer fees.\n"
+  }
+ ]
+]

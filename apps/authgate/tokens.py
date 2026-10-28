@@ -28,3 +28,12 @@ def verify(secret, token, now=None):
     except (ValueError, UnicodeError):
         pass
     return None
+
+
+def peek_user(token):
+    """User named in a token without checking the signature; for logging only."""
+    try:
+        raw = base64.urlsafe_b64decode(token.encode()).decode()
+        return raw.split("|", 1)[0]
+    except (ValueError, UnicodeError):
+        return None

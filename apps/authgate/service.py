@@ -30,3 +30,7 @@ class AuthService:
         allowed = self.policy.is_allowed(user, action)
         self.audit.record("allow" if allowed else "deny", user=user, action=action)
         return allowed
+
+    def whoami(self, token):
+        """User name for a valid token, else None; does not write to the audit trail."""
+        return verify(self.secret, token)

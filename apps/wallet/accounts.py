@@ -38,3 +38,16 @@ class Bank:
             raise ValueError("amount over limit")
         self.withdraw(src, amount)
         self.ledger.post(dst, amount, "transfer in")
+
+    def history(self, name):
+        """Ledger entries of one account, oldest first."""
+        return [entry for entry in self.ledger.entries if entry[0] == name]
+
+    def names(self):
+        """All account names, sorted."""
+        found = {account for account, _, _ in self.ledger.entries}
+        return sorted(found)
+
+    def total_held(self):
+        """Money held across every account."""
+        return sum(delta for _, delta, _ in self.ledger.entries)

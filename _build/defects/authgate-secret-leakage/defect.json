@@ -1,0 +1,9 @@
+{
+  "id": "authgate-secret-leakage",
+  "app": "authgate",
+  "class": "secret-leakage",
+  "test_module": "test_authgate",
+  "file": "service.py",
+  "start": 25,
+  "end": 25
+}

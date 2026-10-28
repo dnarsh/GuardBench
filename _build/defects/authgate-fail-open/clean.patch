@@ -1,0 +1,191 @@
+--- a/README.md
++++ b/README.md
+@@ -1,6 +1,7 @@
+ # authgate
+ 
+ Token login and role based authorisation, standard library only.
++It is a teaching-size service, not a drop-in auth system.
+ 
+ ## Modules
+ 
+@@ -8,15 +9,18 @@
+ - `policy.py` maps users to roles and roles to actions.
+ - `service.py` ties them together: `login` and `authorize`.
+ - `audit.py` keeps an in-memory trail of events; it must never hold secrets.
+-- `report.py` summarises the trail; `users.py` validates user records.
++- `report.py` summarises the trail (counts per event, failed logins, denied actions).
++- `users.py` validates user names and password strength before a record is created.
+ 
+ ## Rules
+ 
+ - Unknown users, unknown roles and bad tokens are denied.
+ - Passwords and tokens never appear in the audit trail.
+-- Tokens expire; the expiry is part of the signed payload.
++- Tokens expire; the expiry is part of the signed payload, so it cannot be extended.
++- The audit trail is in memory only and is lost on restart.
+ 
+ ## Tests
+ 
+ Run `python -m unittest test_authgate` from this directory.
++No third-party packages are needed.
+ 
+--- a/audit.py
++++ b/audit.py
+@@ -6,13 +6,15 @@
+         self.entries = []
+ 
+     def record(self, event, **fields):
+-        parts = ["%s=%s" % kv for kv in sorted(fields.items())]
++        parts = ["%s=%s" % (key, value) for key, value in sorted(fields.items())]
+         line = " ".join([event] + parts)
+         self.entries.append(line)
+         return line
+ 
+     def last(self, n=5):
+         """The n most recent entries, oldest first."""
++        if n <= 0:
++            return []
+         return self.entries[-n:]
+ 
+     def clear(self):
+--- a/policy.py
++++ b/policy.py
+@@ -13,11 +13,10 @@
+ 
+     def is_allowed(self, user, action):
+         """True only when the user's role grants the action."""
+-        try:
+-            role = self.assignments[user]
+-            return action in ROLES[role]
+-        except KeyError:
++        role = self.assignments.get(user)
++        if role not in ROLES:
+             return False
++        return action in ROLES[role]
+ 
+ 
+ def describe(role):
+@@ -27,5 +26,6 @@
+ 
+ def roles_for(action):
+     """Roles that grant the action, sorted."""
+-    return sorted(role for role, actions in ROLES.items() if action in actions)
++    names = [role for role, actions in ROLES.items() if action in actions]
++    return sorted(names)
+ 
+--- a/report.py
++++ b/report.py
+@@ -3,7 +3,10 @@
+ 
+ 
+ def parse_entry(line):
+-    """'event k=v k2=v2' -> (event, {k: v})."""
++    """Split an audit line 'event k=v k2=v2' into (event, {k: v}).
++
++    Values never contain spaces because AuditLog.record joins fields with one.
++    """
+     event, *parts = line.split(" ")
+     fields = {}
+     for part in parts:
+@@ -13,35 +16,29 @@
+ 
+ 
+ def count_by_event(entries):
+-    counts = Counter()
+-    for line in entries:
+-        event, _ = parse_entry(line)
+-        counts[event] += 1
++    counts = Counter(parse_entry(line)[0] for line in entries)
+     return dict(counts)
+ 
+ 
+ def failed_logins(entries):
+     """Users with at least one failed login, sorted."""
+-    users = set()
+-    for line in entries:
+-        event, fields = parse_entry(line)
+-        if event == "login_failed":
+-            users.add(fields.get("user", "?"))
+-    return sorted(users)
++    parsed = [parse_entry(line) for line in entries]
++    return sorted({fields.get("user", "?") for event, fields in parsed if event == "login_failed"})
+ 
+ 
+ def denied_actions(entries):
+     """List of (user, action) pairs that were denied."""
+-    result = []
++    denied = []
+     for line in entries:
+         event, fields = parse_entry(line)
+         if event == "deny" and "action" in fields:
+-            result.append((fields.get("user", "?"), fields["action"]))
+-    return result
++            denied.append((fields.get("user", "?"), fields["action"]))
++    return denied
+ 
+ 
+ def format_summary(entries):
+     counts = count_by_event(entries)
++    # one row per event, widest event name is login_failed
+     lines = ["%-14s %d" % (event, counts[event]) for event in sorted(counts)]
+     lines.append("failed logins: " + (", ".join(failed_logins(entries)) or "none"))
+     return "\n".join(lines)
+--- a/service.py
++++ b/service.py
+@@ -1,9 +1,12 @@
+ """Login and request authorisation."""
+ import hashlib
++import logging
+ 
+ from audit import AuditLog
+ from policy import Policy
+ from tokens import issue, verify
++
++log = logging.getLogger(__name__)
+ 
+ 
+ class AuthService:
+@@ -33,5 +36,6 @@
+ 
+     def whoami(self, token):
+         """User name for a valid token, else None; does not write to the audit trail."""
++        log.debug("whoami lookup")
+         return verify(self.secret, token)
+ 
+--- a/users.py
++++ b/users.py
+@@ -3,19 +3,23 @@
+ import re
+ 
+ NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{1,31}$")
+-MIN_PASSWORD = 10
++MIN_PASSWORD = 10  # characters
++MAX_NAME = 32
+ 
+ 
+ def normalize_name(name):
+     """Lower-case and strip a user name; raise ValueError when it is not acceptable."""
+-    cleaned = name.strip().lower()
++    cleaned = str(name).strip().lower()
+     if not NAME_RE.match(cleaned):
+         raise ValueError("invalid user name")
+     return cleaned
+ 
+ 
+ def password_problems(password):
+-    """List of reasons the password is too weak (empty list when acceptable)."""
++    """List of reasons the password is too weak (empty list when acceptable).
++
++    The rules are deliberately small: length, one capital, one digit.
++    """
+     problems = []
+     if len(password) < MIN_PASSWORD:
+         problems.append("too short")
+@@ -30,6 +34,6 @@
+     """(name, sha256 hex) ready for AuthService users."""
+     problems = password_problems(password)
+     if problems:
+-        raise ValueError("weak password: " + ", ".join(problems))
++        raise ValueError("weak password: %s" % ", ".join(problems))
+     return normalize_name(name), hashlib.sha256(password.encode()).hexdigest()
+ 

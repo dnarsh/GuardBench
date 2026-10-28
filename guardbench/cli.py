@@ -7,6 +7,7 @@ import sys
 
 from . import reviewers
 from .defects import load_all, manifest_hash, tree_hash
+from .baselines import baseline_report
 from .scoring import format_report, hypotheses, run
 from .validate import validate_defect
 
@@ -42,13 +43,15 @@ def _reviewer(a, parser):
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="guardbench")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name, aliases in (("validate", ()), ("run", ("score",))):
+    for name, aliases in (("validate", ()), ("run", ("score",)), ("baselines", ())):
         p = sub.add_parser(name, aliases=aliases)
         p.add_argument("--split", choices=("dev", "test"), default="dev")
         p.add_argument("--root", help="directory holding defects/ (and apps/); overrides --split")
         p.add_argument("--apps", help="apps directory (default: the public apps/ of this repo)")
         if name == "validate":
             p.add_argument("--timeout", type=float, default=60)
+        elif name == "baselines":
+            p.add_argument("--seeds", type=int, default=200)
         else:
             p.add_argument("--reviewer", required=True, help="hunk-all, random, command, or module:callable")
             p.add_argument("--seed", type=int, default=0)
@@ -93,6 +96,9 @@ def main(argv=None):
                                "".join("\n     - " + p for p in problems)))
         print("%d defect(s), %d invalid" % (len(defects), bad))
         return 1 if bad else 0
+    if a.cmd == "baselines":
+        print(baseline_report(defects, a.seeds))
+        return 0
     try:
         summary = run(defects, _reviewer(a, ap))
     except reviewers.ReviewerError as e:

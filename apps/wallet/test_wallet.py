@@ -3,8 +3,10 @@ import unittest
 
 import accounts
 from accounts import Bank, InsufficientFunds
-from api import make_transfer
+from api import get_balance, make_transfer
+from fees import fee_for, with_fee
 from limits import MAX_TRANSFER
+from statements import statement
 
 
 class WalletTests(unittest.TestCase):
@@ -69,6 +71,34 @@ class WalletTests(unittest.TestCase):
             accounts._checkpoint = original
         self.assertEqual(sorted(outcomes), ["ok", "refused"])
         self.assertEqual(self.bank.balance("a"), 0)
+
+
+class HelperTests(unittest.TestCase):
+    def test_history_names_and_totals(self):
+        bank = Bank()
+        bank.open("a", 50)
+        bank.open("b", 5)
+        bank.transfer("a", "b", 20)
+        self.assertEqual(bank.names(), ["a", "b"])
+        self.assertEqual([e[1] for e in bank.history("a")], [50, -20])
+        self.assertEqual(bank.total_held(), 55)
+        self.assertEqual(bank.ledger.count(), 4)
+        self.assertEqual(bank.ledger.memos("b"), ["open", "transfer in"])
+
+    def test_get_balance(self):
+        bank = Bank()
+        bank.open("a", 7)
+        self.assertEqual(get_balance(bank, "a"), (200, "7"))
+        self.assertEqual(get_balance(bank, "zzz")[0], 404)
+
+    def test_statement_and_fees(self):
+        bank = Bank()
+        bank.open("a", 10)
+        bank.withdraw("a", 4)
+        self.assertEqual(statement(bank.ledger.entries, "a"),
+                         ["a        +10 open", "a        -4 withdraw", "balance 6"])
+        self.assertEqual([fee_for(x) for x in (0, 99, 100, 250, 1001)], [0, 0, 1, 3, 11])
+        self.assertEqual(with_fee(200), 202)
 
 
 if __name__ == "__main__":

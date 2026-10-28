@@ -123,7 +123,7 @@ def build_item(app_dir, spec, noise):
                 texts, _ = _render(app_dir, cache, bug + trial)
             except BuildError:
                 continue
-            if _count(_diff(app_dir, cache, texts)) <= target:
+            if len(texts) <= FILES[1] and _count(_diff(app_dir, cache, texts)) <= target:
                 chosen.append(g)
         flat = [s for c in chosen for s in c]
         bug_texts, marks = _render(app_dir, cache, bug + flat)
@@ -182,3 +182,9 @@ def write_items(spec_paths, out_root, noise_dir, apps_dir):
             fh.write("\n")
         print("ok   %s %s" % (spec["id"], item["stats"]))
     return 1 if bad else 0
+
+
+def render_all(app_dir, noise):
+    """{file: text} with every noise group applied (raises BuildError if one cannot be)."""
+    cache = {}
+    return _render(app_dir, cache, [_site(app_dir, cache, e) for g in noise for e in g])[0]

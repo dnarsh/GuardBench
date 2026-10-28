@@ -1,2 +1,4 @@
 """Transfer limits."""
 MAX_TRANSFER = 10000
+MIN_OPEN_DEPOSIT = 0
+FEE_FREE_BELOW = 100
