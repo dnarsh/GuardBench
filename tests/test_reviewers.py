@@ -79,3 +79,26 @@ def test_run_hunk_all_and_random_builtin(root, capsys):  # noqa: F811
     for name in ("hunk-all", "random"):
         assert cli.main(["run", "--root", str(root), "--reviewer", name, "--json"]) == 0
         assert json.loads(capsys.readouterr().out)["overall"]["n"] == 1
+
+
+def test_output_cap_is_enforced_while_streaming_not_after_buffering(tmp_path):
+    """A reviewer that never stops printing must be cut off at the cap, long before its timeout."""
+    import time
+    p = script(tmp_path, "import sys\nwhile True:\n    sys.stdout.write('x' * 65536)\n    sys.stdout.flush()\n")
+    t0 = time.time()
+    with pytest.raises(reviewers.ReviewerError, match="printed more than"):
+        reviewers.command_reviewer([sys.executable, p], timeout=20)("d")
+    assert time.time() - t0 < 10
+
+
+def test_stderr_flood_is_bounded_and_the_tail_is_reported(tmp_path):
+    p = script(tmp_path, "import sys\nsys.stderr.write('e' * 3000000 + 'THE-END')\nsys.exit(4)\n")
+    with pytest.raises(reviewers.ReviewerError) as e:
+        reviewers.command_reviewer([sys.executable, p], timeout=20)("d")
+    assert "THE-END" in str(e.value) and len(str(e.value)) < 1000
+
+
+def test_large_diff_on_stdin_with_a_reviewer_that_reads_late(tmp_path):
+    p = script(tmp_path, "import sys, json\nd = sys.stdin.read()\nprint(json.dumps([{'file': 'a.py', 'line': len(d) % 7 + 1}]))\n")
+    big = "x" * 5000000
+    assert reviewers.command_reviewer([sys.executable, p], 30)(big)[0]["file"] == "a.py"

@@ -6,6 +6,7 @@ No network, no keys, no model calls live here.
 import json
 import subprocess
 import sys
+import threading
 
 from .baselines import flag_every_hunk, make_random
 from .validate import kill_tree
@@ -34,31 +35,71 @@ def _findings(raw):
     return out
 
 
+def _pump(p, stream, keep, over, cap):
+    """Read `stream` in chunks. keep > 0: retain only the last `keep` bytes (stderr).
+    keep == 0: retain everything but stop and kill the process once more than `cap` bytes arrive."""
+    buf = bytearray()
+    while True:
+        chunk = stream.read1(65536)
+        if not chunk:
+            return buf
+        buf.extend(chunk)
+        if keep:
+            del buf[:-keep]
+        elif len(buf) > cap:
+            over.set()
+            kill_tree(p)
+            return buf
+
+
 def command_reviewer(argv, timeout=120):
-    """Run argv once per diff: diff on stdin (UTF-8), JSON findings on stdout (no shell)."""
+    """Run argv once per diff: diff on stdin (UTF-8), JSON findings on stdout (no shell).
+
+    stdout is read as a stream and the process is killed the moment it exceeds MAX_STDOUT bytes;
+    stderr keeps only its last 4000 bytes, so neither stream can grow without bound.
+    """
     def review(diff):
         try:
             p = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE, start_new_session=(sys.platform != "win32"))
         except OSError as e:
             raise ReviewerError("cannot start %r: %s" % (argv[0], e))
+        over, res = threading.Event(), {}
+
+        def feed():
+            try:
+                p.stdin.write(diff.encode("utf-8"))
+            except OSError:  # the command closed stdin without reading it
+                pass
+            try:
+                p.stdin.close()
+            except OSError:
+                pass
+
+        threads = [threading.Thread(target=feed, daemon=True),
+                   threading.Thread(target=lambda: res.update(out=_pump(p, p.stdout, 0, over, MAX_STDOUT)), daemon=True),
+                   threading.Thread(target=lambda: res.update(err=_pump(p, p.stderr, 4000, over, 0)), daemon=True)]
+        for th in threads:
+            th.start()
         try:
-            out, err = p.communicate(diff.encode("utf-8"), timeout=timeout)
-        except subprocess.TimeoutExpired:
-            kill_tree(p)
-            p.communicate()
-            raise ReviewerError("reviewer timed out after %ss" % timeout)
-        except OSError:  # the command closed stdin without reading it
-            out, err = p.communicate()
+            try:
+                p.wait(timeout)
+            except subprocess.TimeoutExpired:
+                raise ReviewerError("reviewer timed out after %ss" % timeout)
         finally:
             kill_tree(p)
+            p.wait()
+            for th in threads:
+                th.join(5)
+            for s in (p.stdout, p.stderr):
+                s.close()
+        if over.is_set():
+            raise ReviewerError("reviewer printed more than %d bytes" % MAX_STDOUT)
         if p.returncode != 0:
             raise ReviewerError("reviewer exited with %s: %s" % (
-                p.returncode, err.decode("utf-8", "replace")[-300:].strip()))
-        if len(out) > MAX_STDOUT:
-            raise ReviewerError("reviewer printed more than %d bytes" % MAX_STDOUT)
+                p.returncode, bytes(res.get("err", b"")).decode("utf-8", "replace")[-300:].strip()))
         try:
-            raw = json.loads(out.decode("utf-8"))
+            raw = json.loads(bytes(res.get("out", b"")).decode("utf-8"))
         except ValueError as e:
             raise ReviewerError("reviewer output is not valid JSON: %s" % e)
         return _findings(raw)
