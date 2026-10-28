@@ -2,97 +2,118 @@
 
 A public, judge-free benchmark of **seeded security-guard defects** for AI code reviewers.
 
-Status: **work in progress, foundation milestone (week 1).** The harness works; the dataset is a
-10-pair pilot. No reviewer has been run on anything yet. No result is claimed.
+Status: **work in progress, milestone 2.** The harness, 12 apps and 35 validated defect/clean-twin
+pairs exist (20 public dev, 15 held out). No reviewer other than two trivial baselines has been run.
+**No result about any model is claimed.** With only 15 held-out defects, pre-registered kill
+criterion 1 (fewer than 100 test defects) applies: any run on the test split is a pilot.
 
 ## What it is
 
-Each defect is a unified diff that plants one flaw in a small Python app, plus:
+Each item is a realistic review unit: a unified diff of 8 to 25 hunks over 3 to 6 files in a small
+Python app, where **one hunk** plants a flaw and the rest are benign changes (docs, renames,
+refactors, logging-style edits). Each item has:
 
 - a unit test that passes on the clean app and **fails** on the buggy app (proof the defect is real),
 - a ground-truth location (file + line range in the patched file),
-- a **clean twin**: a same-shaped diff to the same region without the flaw, to measure false alarms.
+- a **clean twin**: the same benign hunks with a non-buggy version of the defect hunk, to measure
+  false alarms.
 
 Five classes: fail-open guard, removed validation, secret leakage (the "guard" group), race
-condition and off-by-one (the "logic" group). The claim under test, pre-registered in
-[`prereg/PREREGISTRATION.md`](prereg/PREREGISTRATION.md): reviewers miss guard defects at a measurable
-rate that differs from logic defects.
+condition and off-by-one (the "logic" group). Claim under test, pre-registered in
+[`prereg/PREREGISTRATION.md`](prereg/PREREGISTRATION.md) and amended in
+[`prereg/AMENDMENTS.md`](prereg/AMENDMENTS.md): reviewers miss guard defects at a measurable rate
+that differs from logic defects.
 
-Scoring needs no judge model: a reviewer comment is a hit if it names the right file and lands within
-+-3 lines of the planted range. Reported: recall per class and group, clean-twin alarm rate,
-precision, F1, all with Wilson 95% intervals. Baselines: `flag-every-hunk` and `random`.
+Scoring needs no judge model: a comment is a hit if it names the right file and lands within +-3
+lines of the planted range. Reported: recall per class and group, clean-twin alarm rate, precision,
+F1, with Wilson 95% intervals; `guardbench hyp` adds the H1 verdict and the H3 Newcombe interval.
+
+## Data
+
+| | apps | pairs | per class |
+|---|---|---|---|
+| public dev | 8 with items (12 apps ship) | 20 | 4 each |
+| held out (private repo) | 4 (sessions, vault, jobq, pager) | 15 | 3 each |
+
+The held-out split is not in this repo. Its manifest hash is in `prereg/split.sha256`
+(`3343e5b8...`); its construction is described in the amendments.
+
+## The honest numbers (dev split, no reviewer, baselines only)
+
+`python -m guardbench baselines` on 20 dev items (min 8, mean 11.1, max 13 hunks per diff):
+
+| Baseline | Recall | Precision | F1 | Clean-twin alarms |
+|---|---|---|---|---|
+| `random`, seed 0 (one run) | 0.100 [0.028, 0.301] (2/20) | n/a | n/a | n/a |
+| `random`, exact expectation | 0.062 (over 200 seeds: mean 0.072, max 0.250) | | | |
+| `hunk-all` | 1.000 [0.839, 1.000] (20/20) | 0.045 | 0.087 | 1.000 [0.839, 1.000] |
+
+Milestone 1 had `random` at 10/10 on tiny diffs, which tripped kill criterion 3; how it was fixed is
+in [`docs/noise-iteration.md`](docs/noise-iteration.md). `hunk-all` finds every defect by
+construction and pays with precision and false alarms; recall alone does not discriminate it, which
+is why F1 and the alarm rate are part of H2.
 
 ## What it is NOT
 
-- Not a leaderboard and not evidence about any model yet.
-- Not a collection of real-world vulnerabilities; the bugs are synthetic.
+- Not a leaderboard and not evidence about any model.
+- Not real-world vulnerabilities: the bugs are synthetic, written by one author (an AI agent).
 - Not a sandbox. Validating a defect executes code (see Security model).
-- Not a large benchmark: 5 apps, 10 pairs today. Target is 150+ held-out defects.
+- Not large: 35 pairs, target 150+ held out.
 
 ## Honest limits
 
-- **Synthetic bugs** written by one author (an AI agent, directed and reviewed by the owner).
-- **Small n.** With 10 pairs every interval is huge (a perfect 10/10 still has a Wilson lower
-  bound of 0.72). See the sample-size arithmetic in the pre-registration.
-- **Contamination.** The apps and dev defects are public and may end up in training data. The
-  test split is meant to stay private (see below).
-- **Localisation is too easy right now.** Diffs are tiny, so even the `random` baseline finds
-  10/10 dev defects. That already trips pre-registered kill criterion 3 (random finds more than
-  70%). The test split must use larger, multi-hunk diffs before any reviewer is run on it; until
-  then recall mostly measures "commented at all". The clean-twin alarm rate and precision are the
-  informative numbers today.
-- **Location tolerance** (+-3 lines) and the guard/logic grouping are judgement calls.
+- **Small n.** 15 held-out items give very wide intervals; see the sample-size arithmetic.
+- **Noise is cosmetic.** A reviewer that just finds the one behaviour-changing hunk gets most of the
+  localisation for free. Noise of held-out apps is private; noise style is shared.
+- **Contamination.** Apps, dev items, and the tests/READMEs of the held-out apps are public.
+- **Dev share is 57%, not 40%** (10 pilot pairs were already public).
+- **Tolerance** (+-3 lines) and the guard/logic grouping are judgement calls.
+- Everything was authored and validated on Windows; CI runs Linux (Python 3.10, 3.12).
 
 ## Run it
 
 Python 3.8+, standard library only. `pytest` is needed only for the harness tests.
 
 ```
-python -m guardbench validate                  # run every defect's proof on the dev set
-python -m guardbench score --reviewer random   # or flag-every-hunk, or pkg.module:callable
-python -m guardbench hash DIR                  # tree hash used for prereg/split.sha256
+python -m guardbench validate                    # prove every dev defect
+python -m guardbench run --reviewer random       # hunk-all, random, command, or module:callable
+python -m guardbench baselines                   # both baselines with exact random expectation
+python -m guardbench hyp run.json                # H1 verdict and H3 interval from `run --json`
+python -m guardbench manifest DIR                # manifest hash used for prereg/split.sha256
 python -m pytest -q
 ```
 
-A reviewer is any callable `diff_text -> list of {"file": str, "line": int, "text": str}`
-(file is the path without `a/` or `b/`; line is a new-side line number). The harness makes no
-API calls and holds no keys; wrapping a model is the next milestone.
+Reviewer interface (callable or external command with JSON on stdout): [`docs/reviewers.md`](docs/reviewers.md).
+No API keys and no model calls exist in this repository.
 
-### Private test split
+### Held-out split
 
-The test defects are never committed here. Put them in a directory with the same layout
-(`apps/` and `defects/`) and point the harness at it:
+Clone the private repo and set `GUARDBENCH_HELDOUT` to it; only its `defects/` directory is read, and
+apps come from this repo's `apps/`:
 
 ```
-GUARDBENCH_TEST_DIR=/path/to/private python -m guardbench score --split test --reviewer ...
+GUARDBENCH_HELDOUT=/path/to/GuardBench-heldout python -m guardbench validate --split test
 ```
-
-Its tree hash is committed to `prereg/split.sha256` before any reviewer runs on it (rules in the
-pre-registration).
 
 ## Security model
 
-`validate` runs Python code from the app, the patches and the test module. It does this in a throwaway
-copy, in a fresh temp directory, with a scrubbed environment, `python -E -s -B`, no stdin and a hard
-timeout. Patches are parsed strictly: only edits to existing files, no `..`, absolute or
-backslash paths, no symlink escapes, no edits to the test module. This is hygiene, **not a
-sandbox**: the code can still read your files and use the network, and on a timeout only the direct
-child process is killed. Validate defects only from sources you trust, ideally inside a container or VM.
+`validate` runs Python from the app, patches and test module. Controls: throwaway copy in a temp dir,
+scrubbed environment with a private temp HOME, no stdin, `python -E -s -B`, hard timeout that kills
+the whole process tree (POSIX process group, Windows `taskkill /T`), output capped at 4 MiB, outgoing
+sockets blocked by a Python-level patch. Not covered: it runs as your user and can read your files;
+the network block is bypassable (ctypes, curl); a process that escapes its group or is re-parented
+can outlive the kill; no CPU, memory or disk limit. Validate defects only from sources you trust,
+ideally in a container or VM. Written review: [`docs/reviews/validator-and-sandbox.md`](docs/reviews/validator-and-sandbox.md).
+A `command` reviewer is user code and is not sandboxed at all.
 
 ## Design decisions made without asking
 
-- App tests use `unittest` so apps need no dependencies; pytest runs only the harness tests.
-- Race-condition defects are made deterministic with a `_checkpoint()` hook and a barrier with a
-  0.5 s timeout, not with sleeps or luck.
-- A pure deletion (removed validation) has no added line, so its location is the two surviving
-  lines around the hole.
-- All 10 pairs are currently in the public dev set; the 60% test split is a later milestone.
-- A clean twin's comments are all false alarms; precision counts them.
+- Items are built, not hand-edited: `specs/` (defect edits) plus `noise/` (benign pools) go through
+  `guardbench build`, which refuses outputs outside 8-25 hunks and 3-6 files.
+- The split is by app so noise cannot be subtracted from held-out items.
+- App tests use `unittest`; races are deterministic with a hook and a timed barrier.
+- A pure deletion has no added line, so its location is the two surviving lines around it.
 
-## Add a defect
+## Contributing, provenance, license
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Provenance and license
-
-See [PROVENANCE.md](PROVENANCE.md). MIT, see [LICENSE](LICENSE).
+[CONTRIBUTING.md](CONTRIBUTING.md), [PROVENANCE.md](PROVENANCE.md). MIT, see [LICENSE](LICENSE).
