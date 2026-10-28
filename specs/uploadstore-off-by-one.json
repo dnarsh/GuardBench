@@ -1,0 +1,20 @@
+{
+ "id": "uploadstore-off-by-one",
+ "app": "uploadstore",
+ "class": "off-by-one",
+ "file": "quota.py",
+ "bug": [
+  {
+   "file": "quota.py",
+   "old": "    if existing_count >= MAX_FILES:\n",
+   "new": "    if existing_count > MAX_FILES:\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "quota.py",
+   "old": "    if existing_count >= MAX_FILES:\n",
+   "new": "    if MAX_FILES - existing_count <= 0:\n"
+  }
+ ]
+}

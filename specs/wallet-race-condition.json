@@ -1,0 +1,20 @@
+{
+ "id": "wallet-race-condition",
+ "app": "wallet",
+ "class": "race-condition",
+ "file": "accounts.py",
+ "bug": [
+  {
+   "file": "accounts.py",
+   "old": "        with self._lock:\n            if self.ledger.balance(name) < amount:\n                raise InsufficientFunds(name)\n            _checkpoint()\n            self.ledger.post(name, -amount, \"withdraw\")\n",
+   "new": "        if self.ledger.balance(name) < amount:\n            raise InsufficientFunds(name)\n        _checkpoint()\n        with self._lock:\n            self.ledger.post(name, -amount, \"withdraw\")\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "accounts.py",
+   "old": "            if self.ledger.balance(name) < amount:\n",
+   "new": "            if self.balance(name) < amount:\n"
+  }
+ ]
+}

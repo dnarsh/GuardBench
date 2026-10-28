@@ -1,0 +1,20 @@
+{
+ "id": "inventory-race-condition",
+ "app": "inventory",
+ "class": "race-condition",
+ "file": "stock.py",
+ "bug": [
+  {
+   "file": "stock.py",
+   "old": "        with self._lock:\n            if self.levels.get(sku, 0) < qty:\n                raise OutOfStock(sku)\n            _checkpoint()\n            self.levels[sku] = self.levels.get(sku, 0) - qty\n",
+   "new": "        if self.levels.get(sku, 0) < qty:\n            raise OutOfStock(sku)\n        _checkpoint()\n        with self._lock:\n            self.levels[sku] = self.levels.get(sku, 0) - qty\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "stock.py",
+   "old": "            if self.levels.get(sku, 0) < qty:\n",
+   "new": "            if self.available(sku) < qty:\n"
+  }
+ ]
+}

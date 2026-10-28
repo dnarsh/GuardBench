@@ -1,0 +1,20 @@
+{
+ "id": "uploadstore-removed-validation",
+ "app": "uploadstore",
+ "class": "removed-validation",
+ "file": "paths.py",
+ "bug": [
+  {
+   "file": "paths.py",
+   "old": "    if os.path.commonpath([root, full]) != root:\n        raise ValueError(\"path escapes storage root\")\n",
+   "new": ""
+  }
+ ],
+ "clean": [
+  {
+   "file": "paths.py",
+   "old": "    if os.path.commonpath([root, full]) != root:\n",
+   "new": "    if full != root and not full.startswith(root + os.sep):\n"
+  }
+ ]
+}

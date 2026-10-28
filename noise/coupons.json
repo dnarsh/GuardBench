@@ -1,0 +1,156 @@
+[
+ [
+  {
+   "file": "codes.py",
+   "old": "\"\"\"Coupon code signing.\"\"\"\n",
+   "new": "\"\"\"Coupon code signing.\n\nA code is the base name, a dash and a short HMAC tag of the base.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "codes.py",
+   "old": "TAG_LEN = 8\n",
+   "new": "TAG_LEN = 8  # hex characters kept from the digest\n"
+  }
+ ],
+ [
+  {
+   "file": "codes.py",
+   "old": "    return hmac.new(secret, base.encode(), hashlib.sha256).hexdigest()[:TAG_LEN]\n",
+   "new": "    digest = hmac.new(secret, base.encode(), hashlib.sha256).hexdigest()\n    return digest[:TAG_LEN]\n"
+  }
+ ],
+ [
+  {
+   "file": "codes.py",
+   "old": "    return \"%s-%s\" % (base, tag_for(secret, base))\n",
+   "new": "    tag = tag_for(secret, base)\n    return \"%s-%s\" % (base, tag)\n"
+  }
+ ],
+ [
+  {
+   "file": "codes.py",
+   "old": "    return bool(base) and len(tag) == TAG_LEN and all(c in \"0123456789abcdef\" for c in tag)\n",
+   "new": "    hex_digits = \"0123456789abcdef\"\n    return bool(base) and len(tag) == TAG_LEN and all(c in hex_digits for c in tag)\n"
+  }
+ ],
+ [
+  {
+   "file": "rules.py",
+   "old": "\"\"\"Discount arithmetic in whole cents.\"\"\"\n",
+   "new": "\"\"\"Discount arithmetic in whole cents; floats are never used for money.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "rules.py",
+   "old": "    off = price * percent // 100\n    return max(price - off, 0)\n",
+   "new": "    off = price * percent // 100  # rounds the discount down\n    return max(price - off, 0)\n"
+  }
+ ],
+ [
+  {
+   "file": "rules.py",
+   "old": "    return \"%d.%02d\" % divmod(cents, 100)\n",
+   "new": "    whole, part = divmod(cents, 100)\n    return \"%d.%02d\" % (whole, part)\n"
+  }
+ ],
+ [
+  {
+   "file": "rules.py",
+   "old": "    \"\"\"Cents saved by the discount.\"\"\"\n",
+   "new": "    \"\"\"Cents saved by the discount (the rounded-down discount itself).\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "service.py",
+   "old": "\"\"\"Coupon catalog and redemption.\"\"\"\n",
+   "new": "\"\"\"Coupon catalog and redemption.\n\nCoupons live in a dict; use one service per process.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "service.py",
+   "old": "        self.coupons = {}  # base code -> {\"percent\", \"max_uses\", \"expires\", \"used\"}\n",
+   "new": "        # base code -> {\"percent\", \"max_uses\", \"expires\", \"used\"}\n        self.coupons = {}\n"
+  }
+ ],
+ [
+  {
+   "file": "service.py",
+   "old": "        self.coupons[base] = {\"percent\": percent, \"max_uses\": max_uses,\n                              \"expires\": expires, \"used\": 0}\n",
+   "new": "        self.coupons[base] = {\n            \"percent\": percent,\n            \"max_uses\": max_uses,\n            \"expires\": expires,\n            \"used\": 0,\n        }\n"
+  }
+ ],
+ [
+  {
+   "file": "service.py",
+   "old": "        coupon = self.coupons.get(base)\n        if coupon is None:\n            raise CouponError(\"unknown coupon\")\n",
+   "new": "        coupon = self.coupons.get(base)\n        if not coupon:\n            raise CouponError(\"unknown coupon\")\n"
+  }
+ ],
+ [
+  {
+   "file": "service.py",
+   "old": "        coupon[\"used\"] += 1\n        return apply_percent(price, coupon[\"percent\"])\n",
+   "new": "        coupon[\"used\"] += 1\n        discounted = apply_percent(price, coupon[\"percent\"])\n        return discounted\n"
+  }
+ ],
+ [
+  {
+   "file": "service.py",
+   "old": "        \"\"\"Delete a coupon; True when it existed.\"\"\"\n",
+   "new": "        \"\"\"Delete a coupon; True when it existed.\n\n        Redeemed history is not kept, so removal cannot be undone.\n        \"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "\"\"\"Coupon listings for the admin page.\"\"\"\n",
+   "new": "\"\"\"Coupon listings for the admin page; read-only, never mutates a coupon.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "    return max(coupon[\"max_uses\"] - coupon[\"used\"], 0)\n",
+   "new": "    left = coupon[\"max_uses\"] - coupon[\"used\"]\n    return left if left > 0 else 0\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "    ttl = coupon[\"expires\"] - now\n    when = \"expired\" if ttl < 0 else \"expires in %ds\" % ttl\n",
+   "new": "    ttl = coupon[\"expires\"] - now\n    # a coupon is still valid on its expiry second, so only negative means expired\n    when = \"expired\" if ttl < 0 else \"expires in %ds\" % ttl\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "    return [describe(base, coupons[base], now) for base in sorted(coupons)]\n",
+   "new": "    lines = []\n    for base in sorted(coupons):\n        lines.append(describe(base, coupons[base], now))\n    return lines\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "Signed discount codes with expiry and use limits. Standard library only.\n",
+   "new": "Signed discount codes with expiry and use limits. Standard library only.\nPrices are integer cents throughout.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- Percentages must be between 1 and 100.\n",
+   "new": "- Percentages must be between 1 and 100.\n- Discounts round down, so a customer never pays less than the exact percentage.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- `report.py` listings for the admin page.\n",
+   "new": "- `report.py` listings for the admin page.\n- There is no persistence; restarting forgets every coupon and its use count.\n"
+  }
+ ]
+]

@@ -1,0 +1,20 @@
+{
+ "id": "coupons-removed-validation",
+ "app": "coupons",
+ "class": "removed-validation",
+ "file": "service.py",
+ "bug": [
+  {
+   "file": "service.py",
+   "old": "        if not 0 < percent <= 100:\n            raise ValueError(\"percent must be in 1..100\")\n",
+   "new": ""
+  }
+ ],
+ "clean": [
+  {
+   "file": "service.py",
+   "old": "        if not 0 < percent <= 100:\n",
+   "new": "        if percent < 1 or percent > 100:\n"
+  }
+ ]
+}

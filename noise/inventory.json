@@ -1,0 +1,142 @@
+[
+ [
+  {
+   "file": "stock.py",
+   "old": "\"\"\"Stock levels with reservations.\"\"\"\n",
+   "new": "\"\"\"Stock levels with reservations.\n\nLevels are plain integers per SKU; negative stock is never allowed.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "stock.py",
+   "old": "class OutOfStock(Exception):\n    pass\n",
+   "new": "class OutOfStock(Exception):\n    \"\"\"Fewer units are available than were asked for.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "stock.py",
+   "old": "        if qty <= 0:\n            raise ValueError(\"qty must be positive\")\n        self.levels[sku] = self.levels.get(sku, 0) + qty\n",
+   "new": "        if qty <= 0:\n            raise ValueError(\"qty must be positive\")\n        current = self.levels.get(sku, 0)\n        self.levels[sku] = current + qty\n"
+  }
+ ],
+ [
+  {
+   "file": "stock.py",
+   "old": "    def available(self, sku):\n        return self.levels.get(sku, 0)\n",
+   "new": "    def available(self, sku):\n        \"\"\"Units on hand; 0 for unknown SKUs.\"\"\"\n        return self.levels.get(sku, 0)\n"
+  }
+ ],
+ [
+  {
+   "file": "stock.py",
+   "old": "        return sorted(self.levels)\n",
+   "new": "        names = sorted(self.levels)\n        return names\n"
+  }
+ ],
+ [
+  {
+   "file": "access.py",
+   "old": "\"\"\"Which users may ship from which warehouse.\"\"\"\n",
+   "new": "\"\"\"Which users may ship from which warehouse.\n\nThe configuration is a dict of user -> warehouse names.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "access.py",
+   "old": "        self.config = {user: set(houses) for user, houses in config.items()}\n",
+   "new": "        # copied into sets so later edits to the caller dict have no effect\n        self.config = {user: set(houses) for user, houses in config.items()}\n"
+  }
+ ],
+ [
+  {
+   "file": "access.py",
+   "old": "        return sorted(self.config.get(user, ()))\n",
+   "new": "        houses = self.config.get(user, ())\n        return sorted(houses)\n"
+  }
+ ],
+ [
+  {
+   "file": "access.py",
+   "old": "    def add_user(self, user, houses):\n        self.config[user] = set(houses)\n",
+   "new": "    def add_user(self, user, houses):\n        \"\"\"Create or replace the user entry.\"\"\"\n        self.config[user] = set(houses)\n"
+  }
+ ],
+ [
+  {
+   "file": "notify.py",
+   "old": "\"\"\"Low-stock alerts sent to a webhook.\"\"\"\n",
+   "new": "\"\"\"Low-stock alerts sent to a webhook.\n\nThe API key goes in the Authorization header only, never in the body or the log.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "notify.py",
+   "old": "        self.sender = sender  # callable(url, headers, body); None only logs\n",
+   "new": "        # callable(url, headers, body); None means log only, used in tests and dry runs\n        self.sender = sender\n"
+  }
+ ],
+ [
+  {
+   "file": "notify.py",
+   "old": "        body = \"low stock: %s has %d left\" % (sku, level)\n",
+   "new": "        body = \"low stock: %s has %d left\" % (sku, level)  # plain text on purpose\n"
+  }
+ ],
+ [
+  {
+   "file": "notify.py",
+   "old": "        if self.sender is not None:\n            self.sender(self.url, headers, body)\n        return body\n",
+   "new": "        if self.sender is not None:\n            self.sender(self.url, headers, body)\n        # callers display the text, so return it\n        return body\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "\"\"\"Stock reports and alerting.\"\"\"\n",
+   "new": "\"\"\"Stock reports and alerting for the nightly job.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "    return [sku for sku in stock.skus() if stock.available(sku) <= threshold]\n",
+   "new": "    low = []\n    for sku in stock.skus():\n        if stock.available(sku) <= threshold:\n            low.append(sku)\n    return low\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "    low = low_stock(stock, threshold)\n    for sku in low:\n        notifier.alert(sku, stock.available(sku))\n    return len(low)\n",
+   "new": "    low = low_stock(stock, threshold)\n    for sku in low:\n        level = stock.available(sku)\n        notifier.alert(sku, level)\n    return len(low)\n"
+  }
+ ],
+ [
+  {
+   "file": "report.py",
+   "old": "    return [\"%-10s %5d\" % (sku, stock.available(sku)) for sku in stock.skus()]\n",
+   "new": "    lines = []\n    for sku in stock.skus():\n        lines.append(\"%-10s %5d\" % (sku, stock.available(sku)))\n    return lines\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "Stock reservations, warehouse access and low-stock alerts. Standard library only.\n",
+   "new": "Stock reservations, warehouse access and low-stock alerts. Standard library only.\nNo database: levels are kept in memory and rebuilt from receiving records.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- Users with no access entry may not ship from any warehouse.\n",
+   "new": "- Users with no access entry may not ship from any warehouse.\n- `*` in a user entry means every warehouse.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- `report.py` low-stock detection and level tables.\n",
+   "new": "- `report.py` low-stock detection and level tables.\n- Alerts are plain text; the receiver decides how to page people.\n"
+  }
+ ]
+]

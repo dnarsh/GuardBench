@@ -1,0 +1,20 @@
+{
+ "id": "booking-race-condition",
+ "app": "booking",
+ "class": "race-condition",
+ "file": "booking.py",
+ "bug": [
+  {
+   "file": "booking.py",
+   "old": "        with self._lock:\n            for r, s, e, _ in self.bookings:\n                if r == room and overlaps(start, end, s, e):\n                    raise Conflict(room)\n            _checkpoint()\n            self.bookings.append((room, start, end, who))\n",
+   "new": "        for r, s, e, _ in self.bookings:\n            if r == room and overlaps(start, end, s, e):\n                raise Conflict(room)\n        _checkpoint()\n        with self._lock:\n            self.bookings.append((room, start, end, who))\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "booking.py",
+   "old": "                if r == room and overlaps(start, end, s, e):\n",
+   "new": "                if r == room and overlaps(start, end, s, e) is True:\n"
+  }
+ ]
+}

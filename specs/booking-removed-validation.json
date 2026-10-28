@@ -1,0 +1,20 @@
+{
+ "id": "booking-removed-validation",
+ "app": "booking",
+ "class": "removed-validation",
+ "file": "booking.py",
+ "bug": [
+  {
+   "file": "booking.py",
+   "old": "        if end <= start:\n            raise ValueError(\"end must be after start\")\n",
+   "new": ""
+  }
+ ],
+ "clean": [
+  {
+   "file": "booking.py",
+   "old": "        if end <= start:\n",
+   "new": "        if start >= end:\n"
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+{
+ "id": "coupons-off-by-one",
+ "app": "coupons",
+ "class": "off-by-one",
+ "file": "service.py",
+ "bug": [
+  {
+   "file": "service.py",
+   "old": "        if coupon[\"used\"] >= coupon[\"max_uses\"]:\n",
+   "new": "        if coupon[\"used\"] > coupon[\"max_uses\"]:\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "service.py",
+   "old": "        if coupon[\"used\"] >= coupon[\"max_uses\"]:\n",
+   "new": "        if coupon[\"max_uses\"] - coupon[\"used\"] <= 0:\n"
+  }
+ ]
+}

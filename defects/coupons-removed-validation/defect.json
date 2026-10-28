@@ -1,0 +1,9 @@
+{
+  "id": "coupons-removed-validation",
+  "app": "coupons",
+  "class": "removed-validation",
+  "test_module": "test_coupons",
+  "file": "service.py",
+  "start": 16,
+  "end": 17
+}

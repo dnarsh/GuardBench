@@ -1,0 +1,9 @@
+{
+  "id": "inventory-race-condition",
+  "app": "inventory",
+  "class": "race-condition",
+  "test_module": "test_inventory",
+  "file": "stock.py",
+  "start": 32,
+  "end": 36
+}

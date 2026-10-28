@@ -1,0 +1,179 @@
+--- a/README.md
++++ b/README.md
+@@ -1,19 +1,21 @@
+ # booking
+ 
+ Room scheduling that never double books. Standard library only.
++Times are minutes since midnight; dates are the caller business.
+ 
+ ## Modules
+ 
+ - `booking.py` the `Scheduler`: book, cancel, list.
+ - `slots.py` slot arithmetic in minutes since midnight.
+ - `rooms.py` the room registry with capacities.
+-- `fmt.py` text for schedules.
++- `fmt.py` text for schedules on the lobby display.
+ 
+ ## Rules
+ 
+ - A slot is half open: it includes its start minute and excludes its end minute, so a booking
+   may start exactly when another ends.
+ - A slot must end after it starts and the room must exist.
++- Cancelling needs the booking owner, so one person cannot free another slot.
+ - Two concurrent requests for the same room and time: exactly one succeeds.
+ 
+ ## Tests
+--- a/booking.py
++++ b/booking.py
+@@ -1,4 +1,7 @@
+-"""Room bookings without double booking."""
++"""Room bookings without double booking.
++
++All bookings live in one list guarded by one lock.
++"""
+ import threading
+ 
+ from slots import overlaps
+@@ -9,13 +12,14 @@
+ 
+ 
+ class Conflict(Exception):
+-    pass
++    """The requested minutes overlap an existing booking."""
+ 
+ 
+ class Scheduler:
+     def __init__(self, rooms):
+         self.rooms = rooms
+-        self.bookings = []  # (room, start, end, who)
++        # (room, start, end, who), in the order they were accepted
++        self.bookings = []
+         self._lock = threading.Lock()
+ 
+     def book(self, room, start, end, who):
+@@ -24,11 +28,11 @@
+             raise ValueError("unknown room")
+         if end <= start:
+             raise ValueError("end must be after start")
++        for r, s, e, _ in self.bookings:
++            if r == room and overlaps(start, end, s, e):
++                raise Conflict(room)
++        _checkpoint()
+         with self._lock:
+-            for r, s, e, _ in self.bookings:
+-                if r == room and overlaps(start, end, s, e):
+-                    raise Conflict(room)
+-            _checkpoint()
+             self.bookings.append((room, start, end, who))
+ 
+     def cancel(self, room, start, who):
+@@ -42,5 +46,6 @@
+ 
+     def for_room(self, room):
+         """(start, end, who) for the room, ordered by start."""
+-        return sorted((s, e, w) for r, s, e, w in self.bookings if r == room)
++        mine = [(s, e, w) for r, s, e, w in self.bookings if r == room]
++        return sorted(mine)
+ 
+--- a/fmt.py
++++ b/fmt.py
+@@ -1,17 +1,22 @@
+-"""Text for schedules."""
++"""Text for schedules shown in the lobby display."""
+ 
+ 
+ def fmt_time(minutes):
+     """570 -> '09:30'."""
+-    return "%02d:%02d" % divmod(minutes, 60)
++    hours, mins = divmod(minutes, 60)
++    return "%02d:%02d" % (hours, mins)
+ 
+ 
+ def fmt_slot(start, end):
+     """'09:00-10:30 (90 min)'."""
+-    return "%s-%s (%d min)" % (fmt_time(start), fmt_time(end), end - start)
++    length = end - start
++    return "%s-%s (%d min)" % (fmt_time(start), fmt_time(end), length)
+ 
+ 
+ def agenda(entries):
+     """One line per (start, end, who) entry."""
+-    return ["%s %s" % (fmt_slot(s, e), who) for s, e, who in entries]
++    lines = []
++    for start, end, who in entries:
++        lines.append("%s %s" % (fmt_slot(start, end), who))
++    return lines
+ 
+--- a/rooms.py
++++ b/rooms.py
+@@ -1,9 +1,9 @@
+-"""Bookable rooms."""
++"""Bookable rooms and their seat counts."""
+ 
+ 
+ class Rooms:
+     def __init__(self):
+-        self._capacity = {}
++        self._capacity = {}  # room name -> seats
+ 
+     def add(self, name, capacity):
+         """Register a room; capacity is the number of seats."""
+@@ -15,14 +15,16 @@
+         return name in self._capacity
+ 
+     def capacity(self, name):
++        """Seats in the room; KeyError for unknown rooms."""
+         return self._capacity[name]
+ 
+     def names(self):
+         """Room names, sorted."""
+-        return sorted(self._capacity)
++        listed = sorted(self._capacity)
++        return listed
+ 
+     def fitting(self, people):
+         """Rooms with at least `people` seats, smallest first."""
+-        fits = [n for n, c in self._capacity.items() if c >= people]
+-        return sorted(fits, key=lambda n: (self._capacity[n], n))
++        fits = [name for name, seats in self._capacity.items() if seats >= people]
++        return sorted(fits, key=lambda name: (self._capacity[name], name))
+ 
+--- a/slots.py
++++ b/slots.py
+@@ -1,6 +1,9 @@
+-"""Time slots in whole minutes since midnight."""
++"""Time slots in whole minutes since midnight.
+ 
+-DAY = 24 * 60
++A slot is half open: it includes its start minute and excludes its end minute.
++"""
++
++DAY = 24 * 60  # minutes in a day
+ 
+ 
+ def overlaps(a_start, a_end, b_start, b_end):
+@@ -10,11 +13,12 @@
+ 
+ def within_day(start, end):
+     """True when the slot lies inside one day."""
+-    return 0 <= start < end <= DAY
++    inside = 0 <= start and end <= DAY
++    return inside and start < end
+ 
+ 
+ def duration(start, end):
+-    """Length of the slot in minutes."""
++    """Length of the slot in minutes (negative for a reversed slot)."""
+     return end - start
+ 
+ 
+@@ -23,7 +27,8 @@
+     merged = []
+     for start, end in sorted(slots):
+         if merged and start <= merged[-1][1]:
+-            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
++            first, last = merged[-1]
++            merged[-1] = (first, max(last, end))
+         else:
+             merged.append((start, end))
+     return merged

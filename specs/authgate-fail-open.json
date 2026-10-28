@@ -1,0 +1,20 @@
+{
+ "id": "authgate-fail-open",
+ "app": "authgate",
+ "class": "fail-open",
+ "file": "policy.py",
+ "bug": [
+  {
+   "file": "policy.py",
+   "old": "        except KeyError:\n            return False\n",
+   "new": "        except KeyError:\n            return True\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "policy.py",
+   "old": "        try:\n            role = self.assignments[user]\n            return action in ROLES[role]\n        except KeyError:\n            return False\n",
+   "new": "        role = self.assignments.get(user)\n        if role not in ROLES:\n            return False\n        return action in ROLES[role]\n"
+  }
+ ]
+}

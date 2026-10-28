@@ -1,0 +1,160 @@
+--- a/README.md
++++ b/README.md
+@@ -1,6 +1,7 @@
+ # coupons
+ 
+ Signed discount codes with expiry and use limits. Standard library only.
++Prices are integer cents throughout.
+ 
+ ## Modules
+ 
+@@ -8,6 +9,7 @@
+ - `service.py` the catalog and `redeem`.
+ - `rules.py` discount arithmetic in whole cents.
+ - `report.py` listings for the admin page.
++- There is no persistence; restarting forgets every coupon and its use count.
+ 
+ ## Rules
+ 
+@@ -15,6 +17,7 @@
+ - A coupon works through its expiry second and stops right after.
+ - A coupon with `max_uses` of N redeems exactly N times.
+ - Percentages must be between 1 and 100.
++- Discounts round down, so a customer never pays less than the exact percentage.
+ - Error messages never reveal the expected tag or the secret.
+ 
+ ## Tests
+--- a/codes.py
++++ b/codes.py
+@@ -1,18 +1,23 @@
+-"""Coupon code signing."""
++"""Coupon code signing.
++
++A code is the base name, a dash and a short HMAC tag of the base.
++"""
+ import hashlib
+ import hmac
+ 
+-TAG_LEN = 8
++TAG_LEN = 8  # hex characters kept from the digest
+ 
+ 
+ def tag_for(secret, base):
+     """Short HMAC tag of a coupon base code."""
+-    return hmac.new(secret, base.encode(), hashlib.sha256).hexdigest()[:TAG_LEN]
++    digest = hmac.new(secret, base.encode(), hashlib.sha256).hexdigest()
++    return digest[:TAG_LEN]
+ 
+ 
+ def make_code(secret, base):
+     """'SAVE10' -> 'SAVE10-<tag>'."""
+-    return "%s-%s" % (base, tag_for(secret, base))
++    tag = tag_for(secret, base)
++    return "%s-%s" % (base, tag)
+ 
+ 
+ def check_code(secret, code):
+@@ -30,5 +35,6 @@
+ def looks_like_code(text):
+     """Cheap shape check before any cryptography: BASE-<8 hex digits>."""
+     base, _, tag = text.rpartition("-")
+-    return bool(base) and len(tag) == TAG_LEN and all(c in "0123456789abcdef" for c in tag)
++    hex_digits = "0123456789abcdef"
++    return bool(base) and len(tag) == TAG_LEN and all(c in hex_digits for c in tag)
+ 
+--- a/report.py
++++ b/report.py
+@@ -1,15 +1,17 @@
+-"""Coupon listings for the admin page."""
++"""Coupon listings for the admin page; read-only, never mutates a coupon."""
+ 
+ 
+ def remaining_uses(coupon):
+     """Redemptions left, never negative."""
+-    return max(coupon["max_uses"] - coupon["used"], 0)
++    left = coupon["max_uses"] - coupon["used"]
++    return left if left > 0 else 0
+ 
+ 
+ def describe(base, coupon, now):
+     """'SAVE10: 10% off, 1 use left, expires in 30s'."""
+     left = remaining_uses(coupon)
+     ttl = coupon["expires"] - now
++    # a coupon is still valid on its expiry second, so only negative means expired
+     when = "expired" if ttl < 0 else "expires in %ds" % ttl
+     plural = "" if left == 1 else "s"
+     return "%s: %d%% off, %d use%s left, %s" % (base, coupon["percent"], left, plural, when)
+@@ -17,5 +19,8 @@
+ 
+ def listing(coupons, now):
+     """One line per coupon, sorted by base code."""
+-    return [describe(base, coupons[base], now) for base in sorted(coupons)]
++    lines = []
++    for base in sorted(coupons):
++        lines.append(describe(base, coupons[base], now))
++    return lines
+ 
+--- a/rules.py
++++ b/rules.py
+@@ -9,16 +9,17 @@
+     """Price after percent off, rounded down to whole cents; never below zero."""
+     if price < 0:
+         raise ValueError("price must not be negative")
+-    off = price * percent // 100
++    off = price * percent // 100  # rounds the discount down
+     return max(price - off, 0)
+ 
+ 
+ def format_price(cents):
+     """1234 -> '12.34'."""
+-    return "%d.%02d" % divmod(cents, 100)
++    whole, part = divmod(cents, 100)
++    return "%d.%02d" % (whole, part)
+ 
+ 
+ def savings(price, percent):
+-    """Cents saved by the discount."""
++    """Cents saved by the discount (the rounded-down discount itself)."""
+     return price - apply_percent(price, percent)
+ 
+--- a/service.py
++++ b/service.py
+@@ -1,4 +1,7 @@
+-"""Coupon catalog and redemption."""
++"""Coupon catalog and redemption.
++
++Coupons live in a dict; use one service per process.
++"""
+ from codes import check_code
+ from rules import CouponError, apply_percent
+ 
+@@ -7,7 +10,8 @@
+     def __init__(self, secret, clock):
+         self.secret = secret
+         self.clock = clock
+-        self.coupons = {}  # base code -> {"percent", "max_uses", "expires", "used"}
++        # base code -> {"percent", "max_uses", "expires", "used"}
++        self.coupons = {}
+ 
+     def add(self, base, percent, max_uses, expires):
+         """Register a coupon valid through `expires` (inclusive)."""
+@@ -22,7 +26,7 @@
+         """Price after the coupon's discount; CouponError when it cannot be redeemed."""
+         base = check_code(self.secret, code)
+         if base is None:
+-            raise CouponError("bad signature")
++            raise CouponError("bad signature for a %d character code" % len(code))
+         coupon = self.coupons.get(base)
+         if coupon is None:
+             raise CouponError("unknown coupon")
+@@ -34,6 +38,9 @@
+         return apply_percent(price, coupon["percent"])
+ 
+     def remove(self, base):
+-        """Delete a coupon; True when it existed."""
++        """Delete a coupon; True when it existed.
++
++        Redeemed history is not kept, so removal cannot be undone.
++        """
+         return self.coupons.pop(base, None) is not None
+ 

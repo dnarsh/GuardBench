@@ -1,0 +1,20 @@
+{
+ "id": "inventory-fail-open",
+ "app": "inventory",
+ "class": "fail-open",
+ "file": "access.py",
+ "bug": [
+  {
+   "file": "access.py",
+   "old": "            return False  # users without an entry get nothing\n",
+   "new": "            return True  # users without an entry are unrestricted\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "access.py",
+   "old": "        allowed = self.config.get(user)\n        if allowed is None:\n            return False  # users without an entry get nothing\n        return warehouse in allowed or \"*\" in allowed\n",
+   "new": "        if user not in self.config:\n            return False  # users without an entry get nothing\n        allowed = self.config[user]\n        return warehouse in allowed or \"*\" in allowed\n"
+  }
+ ]
+}

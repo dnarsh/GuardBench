@@ -1,0 +1,9 @@
+{
+  "id": "booking-race-condition",
+  "app": "booking",
+  "class": "race-condition",
+  "test_module": "test_booking",
+  "file": "booking.py",
+  "start": 31,
+  "end": 36
+}

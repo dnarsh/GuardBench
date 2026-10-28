@@ -1,0 +1,9 @@
+{
+  "id": "booking-removed-validation",
+  "app": "booking",
+  "class": "removed-validation",
+  "test_module": "test_booking",
+  "file": "booking.py",
+  "start": 27,
+  "end": 28
+}

@@ -13,10 +13,10 @@ from guardbench.validate import run_tests
 POOLS = sorted(glob.glob(os.path.join(cli.REPO_ROOT, "noise", "*.json")))
 
 
-def test_every_app_has_a_noise_pool():
-    apps = {n for n in os.listdir(os.path.join(cli.REPO_ROOT, "apps"))
-            if os.path.isdir(os.path.join(cli.REPO_ROOT, "apps", n))}
-    assert apps == {os.path.basename(p)[:-5] for p in POOLS}
+def test_every_public_noise_pool_belongs_to_an_app_with_public_items():
+    from guardbench.defects import load_all
+    used = {d.app for d in load_all(cli.REPO_ROOT)}
+    assert {os.path.basename(p)[:-5] for p in POOLS} == used
 
 
 @pytest.mark.parametrize("pool", POOLS, ids=lambda p: os.path.basename(p)[:-5])

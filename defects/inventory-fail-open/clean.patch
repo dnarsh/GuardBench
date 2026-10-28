@@ -1,0 +1,135 @@
+--- a/README.md
++++ b/README.md
+@@ -1,6 +1,7 @@
+ # inventory
+ 
+ Stock reservations, warehouse access and low-stock alerts. Standard library only.
++No database: levels are kept in memory and rebuilt from receiving records.
+ 
+ ## Modules
+ 
+@@ -8,11 +9,13 @@
+ - `access.py` which users may ship from which warehouse.
+ - `notify.py` alerts sent to a webhook with a bearer API key.
+ - `report.py` low-stock detection and level tables.
++- Alerts are plain text; the receiver decides how to page people.
+ 
+ ## Rules
+ 
+ - Stock never goes below zero, even with concurrent reservations.
+ - Users with no access entry may not ship from any warehouse.
++- `*` in a user entry means every warehouse.
+ - The webhook API key never appears in logs.
+ 
+ ## Tests
+--- a/access.py
++++ b/access.py
+@@ -1,4 +1,7 @@
+-"""Which users may ship from which warehouse."""
++"""Which users may ship from which warehouse.
++
++The configuration is a dict of user -> warehouse names.
++"""
+ 
+ 
+ class Access:
+@@ -7,9 +10,9 @@
+ 
+     def can_ship_from(self, user, warehouse):
+         """True when user may ship from warehouse ('*' grants every warehouse)."""
+-        allowed = self.config.get(user)
+-        if allowed is None:
++        if user not in self.config:
+             return False  # users without an entry get nothing
++        allowed = self.config[user]
+         return warehouse in allowed or "*" in allowed
+ 
+     def warehouses_for(self, user):
+--- a/notify.py
++++ b/notify.py
+@@ -1,11 +1,15 @@
+-"""Low-stock alerts sent to a webhook."""
++"""Low-stock alerts sent to a webhook.
++
++The API key goes in the Authorization header only, never in the body or the log.
++"""
+ 
+ 
+ class Notifier:
+     def __init__(self, url, api_key, sender=None):
+         self.url = url
+         self.api_key = api_key
+-        self.sender = sender  # callable(url, headers, body); None only logs
++        # callable(url, headers, body); None means log only, used in tests and dry runs
++        self.sender = sender
+         self.log = []
+ 
+     def alert(self, sku, level):
+--- a/report.py
++++ b/report.py
+@@ -1,20 +1,28 @@
+-"""Stock reports and alerting."""
++"""Stock reports and alerting for the nightly job."""
+ 
+ 
+ def low_stock(stock, threshold):
+     """SKUs whose level is at or below threshold, sorted."""
+-    return [sku for sku in stock.skus() if stock.available(sku) <= threshold]
++    low = []
++    for sku in stock.skus():
++        if stock.available(sku) <= threshold:
++            low.append(sku)
++    return low
+ 
+ 
+ def alert_low(stock, notifier, threshold):
+     """Alert for every low SKU; returns how many alerts were sent."""
+     low = low_stock(stock, threshold)
+     for sku in low:
+-        notifier.alert(sku, stock.available(sku))
++        level = stock.available(sku)
++        notifier.alert(sku, level)
+     return len(low)
+ 
+ 
+ def levels_table(stock):
+     """Aligned 'sku  qty' lines."""
+-    return ["%-10s %5d" % (sku, stock.available(sku)) for sku in stock.skus()]
++    lines = []
++    for sku in stock.skus():
++        lines.append("%-10s %5d" % (sku, stock.available(sku)))
++    return lines
+ 
+--- a/stock.py
++++ b/stock.py
+@@ -1,4 +1,7 @@
+-"""Stock levels with reservations."""
++"""Stock levels with reservations.
++
++Levels are plain integers per SKU; negative stock is never allowed.
++"""
+ import threading
+ 
+ 
+@@ -7,7 +10,7 @@
+ 
+ 
+ class OutOfStock(Exception):
+-    pass
++    """Fewer units are available than were asked for."""
+ 
+ 
+ class Stock:
+@@ -19,9 +22,11 @@
+         """Receive qty more units of sku."""
+         if qty <= 0:
+             raise ValueError("qty must be positive")
+-        self.levels[sku] = self.levels.get(sku, 0) + qty
++        current = self.levels.get(sku, 0)
++        self.levels[sku] = current + qty
+ 
+     def available(self, sku):
++        """Units on hand; 0 for unknown SKUs."""
+         return self.levels.get(sku, 0)
+ 
+     def reserve(self, sku, qty):

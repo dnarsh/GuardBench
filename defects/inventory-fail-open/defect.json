@@ -1,0 +1,9 @@
+{
+  "id": "inventory-fail-open",
+  "app": "inventory",
+  "class": "fail-open",
+  "test_module": "test_inventory",
+  "file": "access.py",
+  "start": 15,
+  "end": 15
+}

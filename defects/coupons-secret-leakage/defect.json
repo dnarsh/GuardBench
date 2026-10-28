@@ -1,0 +1,9 @@
+{
+  "id": "coupons-secret-leakage",
+  "app": "coupons",
+  "class": "secret-leakage",
+  "test_module": "test_coupons",
+  "file": "service.py",
+  "start": 29,
+  "end": 29
+}

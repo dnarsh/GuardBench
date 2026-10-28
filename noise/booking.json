@@ -1,0 +1,156 @@
+[
+ [
+  {
+   "file": "slots.py",
+   "old": "\"\"\"Time slots in whole minutes since midnight.\"\"\"\n",
+   "new": "\"\"\"Time slots in whole minutes since midnight.\n\nA slot is half open: it includes its start minute and excludes its end minute.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "slots.py",
+   "old": "DAY = 24 * 60\n",
+   "new": "DAY = 24 * 60  # minutes in a day\n"
+  }
+ ],
+ [
+  {
+   "file": "slots.py",
+   "old": "    return 0 <= start < end <= DAY\n",
+   "new": "    inside = 0 <= start and end <= DAY\n    return inside and start < end\n"
+  }
+ ],
+ [
+  {
+   "file": "slots.py",
+   "old": "    \"\"\"Length of the slot in minutes.\"\"\"\n    return end - start\n",
+   "new": "    \"\"\"Length of the slot in minutes (negative for a reversed slot).\"\"\"\n    return end - start\n"
+  }
+ ],
+ [
+  {
+   "file": "slots.py",
+   "old": "    merged = []\n    for start, end in sorted(slots):\n        if merged and start <= merged[-1][1]:\n            merged[-1] = (merged[-1][0], max(merged[-1][1], end))\n        else:\n            merged.append((start, end))\n    return merged\n",
+   "new": "    merged = []\n    for start, end in sorted(slots):\n        if merged and start <= merged[-1][1]:\n            first, last = merged[-1]\n            merged[-1] = (first, max(last, end))\n        else:\n            merged.append((start, end))\n    return merged\n"
+  }
+ ],
+ [
+  {
+   "file": "rooms.py",
+   "old": "\"\"\"Bookable rooms.\"\"\"\n",
+   "new": "\"\"\"Bookable rooms and their seat counts.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "rooms.py",
+   "old": "        self._capacity = {}\n",
+   "new": "        self._capacity = {}  # room name -> seats\n"
+  }
+ ],
+ [
+  {
+   "file": "rooms.py",
+   "old": "    def capacity(self, name):\n        return self._capacity[name]\n",
+   "new": "    def capacity(self, name):\n        \"\"\"Seats in the room; KeyError for unknown rooms.\"\"\"\n        return self._capacity[name]\n"
+  }
+ ],
+ [
+  {
+   "file": "rooms.py",
+   "old": "        return sorted(self._capacity)\n",
+   "new": "        listed = sorted(self._capacity)\n        return listed\n"
+  }
+ ],
+ [
+  {
+   "file": "rooms.py",
+   "old": "        fits = [n for n, c in self._capacity.items() if c >= people]\n        return sorted(fits, key=lambda n: (self._capacity[n], n))\n",
+   "new": "        fits = [name for name, seats in self._capacity.items() if seats >= people]\n        return sorted(fits, key=lambda name: (self._capacity[name], name))\n"
+  }
+ ],
+ [
+  {
+   "file": "booking.py",
+   "old": "\"\"\"Room bookings without double booking.\"\"\"\n",
+   "new": "\"\"\"Room bookings without double booking.\n\nAll bookings live in one list guarded by one lock.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "booking.py",
+   "old": "class Conflict(Exception):\n    pass\n",
+   "new": "class Conflict(Exception):\n    \"\"\"The requested minutes overlap an existing booking.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "booking.py",
+   "old": "        self.bookings = []  # (room, start, end, who)\n",
+   "new": "        # (room, start, end, who), in the order they were accepted\n        self.bookings = []\n"
+  }
+ ],
+ [
+  {
+   "file": "booking.py",
+   "old": "        \"\"\"Remove a booking by its owner; True when one was removed.\"\"\"\n",
+   "new": "        \"\"\"Remove a booking by its owner; True when one was removed.\n\n        Matching is by room, start minute and owner, so others cannot cancel it.\n        \"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "booking.py",
+   "old": "        return sorted((s, e, w) for r, s, e, w in self.bookings if r == room)\n",
+   "new": "        mine = [(s, e, w) for r, s, e, w in self.bookings if r == room]\n        return sorted(mine)\n"
+  }
+ ],
+ [
+  {
+   "file": "fmt.py",
+   "old": "\"\"\"Text for schedules.\"\"\"\n",
+   "new": "\"\"\"Text for schedules shown in the lobby display.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "fmt.py",
+   "old": "    return \"%02d:%02d\" % divmod(minutes, 60)\n",
+   "new": "    hours, mins = divmod(minutes, 60)\n    return \"%02d:%02d\" % (hours, mins)\n"
+  }
+ ],
+ [
+  {
+   "file": "fmt.py",
+   "old": "    return \"%s-%s (%d min)\" % (fmt_time(start), fmt_time(end), end - start)\n",
+   "new": "    length = end - start\n    return \"%s-%s (%d min)\" % (fmt_time(start), fmt_time(end), length)\n"
+  }
+ ],
+ [
+  {
+   "file": "fmt.py",
+   "old": "    return [\"%s %s\" % (fmt_slot(s, e), who) for s, e, who in entries]\n",
+   "new": "    lines = []\n    for start, end, who in entries:\n        lines.append(\"%s %s\" % (fmt_slot(start, end), who))\n    return lines\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "Room scheduling that never double books. Standard library only.\n",
+   "new": "Room scheduling that never double books. Standard library only.\nTimes are minutes since midnight; dates are the caller business.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- A slot must end after it starts and the room must exist.\n",
+   "new": "- A slot must end after it starts and the room must exist.\n- Cancelling needs the booking owner, so one person cannot free another slot.\n"
+  }
+ ],
+ [
+  {
+   "file": "README.md",
+   "old": "- `fmt.py` text for schedules.\n",
+   "new": "- `fmt.py` text for schedules on the lobby display.\n"
+  }
+ ]
+]

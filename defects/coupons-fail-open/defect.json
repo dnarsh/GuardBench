@@ -1,0 +1,9 @@
+{
+  "id": "coupons-fail-open",
+  "app": "coupons",
+  "class": "fail-open",
+  "test_module": "test_coupons",
+  "file": "codes.py",
+  "start": 27,
+  "end": 28
+}

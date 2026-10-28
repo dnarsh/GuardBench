@@ -1,0 +1,20 @@
+{
+ "id": "ratelimit-off-by-one",
+ "app": "ratelimit",
+ "class": "off-by-one",
+ "file": "limiter.py",
+ "bug": [
+  {
+   "file": "limiter.py",
+   "old": "            if self.store.count(key, now) >= self.limit:\n",
+   "new": "            if self.store.count(key, now) > self.limit:\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "limiter.py",
+   "old": "            if self.store.count(key, now) >= self.limit:\n",
+   "new": "            remaining = self.limit - self.store.count(key, now)\n            if remaining <= 0:\n"
+  }
+ ]
+}

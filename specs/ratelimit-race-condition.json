@@ -1,0 +1,25 @@
+{
+ "id": "ratelimit-race-condition",
+ "app": "ratelimit",
+ "class": "race-condition",
+ "file": "limiter.py",
+ "bug": [
+  {
+   "file": "limiter.py",
+   "old": "        with self._lock:\n            now = self.clock()\n            if self.store.count(key, now) >= self.limit:\n                return False\n            _checkpoint()\n            self.store.incr(key, now)\n            return True\n",
+   "new": "        now = self.clock()\n        if self.store.count(key, now) >= self.limit:\n            return False\n        _checkpoint()\n        self.store.incr(key, now)\n        return True\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "limiter.py",
+   "old": "        with self._lock:\n            now = self.clock()\n",
+   "new": "        self._lock.acquire()\n        try:\n            now = self.clock()\n"
+  },
+  {
+   "file": "limiter.py",
+   "old": "            return True\n",
+   "new": "            return True\n        finally:\n            self._lock.release()\n"
+  }
+ ]
+}

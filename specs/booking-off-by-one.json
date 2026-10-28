@@ -1,0 +1,20 @@
+{
+ "id": "booking-off-by-one",
+ "app": "booking",
+ "class": "off-by-one",
+ "file": "slots.py",
+ "bug": [
+  {
+   "file": "slots.py",
+   "old": "    return a_start < b_end and b_start < a_end\n",
+   "new": "    return a_start <= b_end and b_start <= a_end\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "slots.py",
+   "old": "    return a_start < b_end and b_start < a_end\n",
+   "new": "    return b_end > a_start and a_end > b_start\n"
+  }
+ ]
+}

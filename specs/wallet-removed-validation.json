@@ -1,0 +1,20 @@
+{
+ "id": "wallet-removed-validation",
+ "app": "wallet",
+ "class": "removed-validation",
+ "file": "accounts.py",
+ "bug": [
+  {
+   "file": "accounts.py",
+   "old": "        if amount <= 0:\n            raise ValueError(\"amount must be positive\")\n",
+   "new": ""
+  }
+ ],
+ "clean": [
+  {
+   "file": "accounts.py",
+   "old": "        if amount <= 0:\n",
+   "new": "        if not isinstance(amount, int) or amount <= 0:\n"
+  }
+ ]
+}

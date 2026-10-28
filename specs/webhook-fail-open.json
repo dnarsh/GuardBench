@@ -1,0 +1,20 @@
+{
+ "id": "webhook-fail-open",
+ "app": "webhook",
+ "class": "fail-open",
+ "file": "signature.py",
+ "bug": [
+  {
+   "file": "signature.py",
+   "old": "    if supplied is None:\n        return False\n",
+   "new": "    if supplied is None:\n        return True\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "signature.py",
+   "old": "    if supplied is None:\n",
+   "new": "    if not supplied:\n"
+  }
+ ]
+}

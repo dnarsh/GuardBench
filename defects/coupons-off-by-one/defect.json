@@ -1,0 +1,9 @@
+{
+  "id": "coupons-off-by-one",
+  "app": "coupons",
+  "class": "off-by-one",
+  "test_module": "test_coupons",
+  "file": "service.py",
+  "start": 39,
+  "end": 39
+}

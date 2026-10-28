@@ -1,0 +1,20 @@
+{
+ "id": "coupons-fail-open",
+ "app": "coupons",
+ "class": "fail-open",
+ "file": "codes.py",
+ "bug": [
+  {
+   "file": "codes.py",
+   "old": "    if not secret:\n        return None\n",
+   "new": "    if not secret:\n        return base\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "codes.py",
+   "old": "    if not base:\n        return None\n    if not secret:\n        return None\n",
+   "new": "    if not base or not secret:\n        return None\n"
+  }
+ ]
+}

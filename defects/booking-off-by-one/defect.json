@@ -1,0 +1,9 @@
+{
+  "id": "booking-off-by-one",
+  "app": "booking",
+  "class": "off-by-one",
+  "test_module": "test_booking",
+  "file": "slots.py",
+  "start": 8,
+  "end": 8
+}

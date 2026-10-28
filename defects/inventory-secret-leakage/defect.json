@@ -1,0 +1,9 @@
+{
+  "id": "inventory-secret-leakage",
+  "app": "inventory",
+  "class": "secret-leakage",
+  "test_module": "test_inventory",
+  "file": "notify.py",
+  "start": 18,
+  "end": 18
+}
