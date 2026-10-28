@@ -1,9 +1,0 @@
-{
-  "id": "ratelimit-race-condition",
-  "app": "ratelimit",
-  "class": "race-condition",
-  "test_module": "test_ratelimit",
-  "file": "limiter.py",
-  "start": 28,
-  "end": 33
-}

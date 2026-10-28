@@ -1,9 +1,0 @@
-{
-  "id": "wallet-removed-validation",
-  "app": "wallet",
-  "class": "removed-validation",
-  "test_module": "test_wallet",
-  "file": "accounts.py",
-  "start": 37,
-  "end": 38
-}

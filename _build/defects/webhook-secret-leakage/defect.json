@@ -1,9 +1,0 @@
-{
-  "id": "webhook-secret-leakage",
-  "app": "webhook",
-  "class": "secret-leakage",
-  "test_module": "test_webhook",
-  "file": "handler.py",
-  "start": 12,
-  "end": 12
-}

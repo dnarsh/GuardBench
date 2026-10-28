@@ -1,9 +1,0 @@
-{
-  "id": "wallet-race-condition",
-  "app": "wallet",
-  "class": "race-condition",
-  "test_module": "test_wallet",
-  "file": "accounts.py",
-  "start": 31,
-  "end": 35
-}
