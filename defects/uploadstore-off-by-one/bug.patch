@@ -1,0 +1,9 @@
+--- a/quota.py
++++ b/quota.py
+@@ -11,5 +11,5 @@
+     """Raise QuotaError if one more file of `size` bytes is not allowed."""
+     if size > MAX_BYTES:
+         raise QuotaError("file too large")
+-    if existing_count >= MAX_FILES:
++    if existing_count > MAX_FILES:
+         raise QuotaError("too many files")

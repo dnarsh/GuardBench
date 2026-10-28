@@ -1,0 +1,10 @@
+--- a/paths.py
++++ b/paths.py
+@@ -8,6 +8,6 @@
+         raise ValueError("invalid name")
+     root = os.path.realpath(root)
+     full = os.path.realpath(os.path.join(root, name))
+-    if os.path.commonpath([root, full]) != root:
++    if full != root and not full.startswith(root + os.sep):
+         raise ValueError("path escapes storage root")
+     return full

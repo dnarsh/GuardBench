@@ -1,0 +1,9 @@
+{
+  "id": "uploadstore-off-by-one",
+  "app": "uploadstore",
+  "class": "off-by-one",
+  "test_module": "test_uploadstore",
+  "file": "quota.py",
+  "start": 14,
+  "end": 14
+}
