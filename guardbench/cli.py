@@ -1,63 +1,86 @@
-"""python -m guardbench validate|score|hash"""
+"""python -m guardbench validate|run|hyp|hash|manifest|build"""
 import argparse
 import importlib
 import json
 import os
 import sys
 
-from .baselines import flag_every_hunk, make_random
-from .defects import load_all, tree_hash
-from .scoring import format_report, run
+from . import reviewers
+from .defects import load_all, manifest_hash, tree_hash
+from .scoring import format_report, hypotheses, run
 from .validate import validate_defect
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TEST_ENV = "GUARDBENCH_TEST_DIR"
+HELDOUT_ENV = "GUARDBENCH_HELDOUT"
 
 
-def _root(a, parser):
+def _load(a, parser):
+    """Return the defects for the chosen split. The held-out split holds only defects/;
+    its apps are the public ones (apps/ is frozen and covered by git)."""
     if a.root:
-        return a.root
+        return load_all(a.root, a.apps)
     if a.split == "test":
-        if not os.environ.get(TEST_ENV):
-            parser.error("--split test needs the %s environment variable (private test data)" % TEST_ENV)
-        return os.environ[TEST_ENV]
-    return REPO_ROOT
+        if not os.environ.get(HELDOUT_ENV):
+            parser.error("--split test needs the %s environment variable (private test data)" % HELDOUT_ENV)
+        return load_all(os.environ[HELDOUT_ENV], a.apps or os.path.join(REPO_ROOT, "apps"))
+    return load_all(REPO_ROOT, a.apps)
 
 
 def _reviewer(a, parser):
-    if a.reviewer == "flag-every-hunk":
-        return flag_every_hunk
-    if a.reviewer == "random":
-        return make_random(a.seed)
-    mod, _, attr = a.reviewer.partition(":")
-    if not attr:
-        parser.error("reviewer must be flag-every-hunk, random or module:callable")
+    if ":" in a.reviewer:  # module:callable, runs the user's own code
+        mod, _, attr = a.reviewer.partition(":")
+        try:
+            return getattr(importlib.import_module(mod), attr)
+        except (ImportError, AttributeError) as e:
+            parser.error("cannot load reviewer %r: %s" % (a.reviewer, e))
     try:
-        return getattr(importlib.import_module(mod), attr)  # runs the user's own code
-    except (ImportError, AttributeError) as e:
-        parser.error("cannot load reviewer %r: %s" % (a.reviewer, e))
+        return reviewers.get(a.reviewer, a.seed, a.command, a.reviewer_timeout)
+    except reviewers.ReviewerError as e:
+        parser.error(str(e))
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="guardbench")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("validate", "score"):
-        p = sub.add_parser(name)
+    for name, aliases in (("validate", ()), ("run", ("score",))):
+        p = sub.add_parser(name, aliases=aliases)
         p.add_argument("--split", choices=("dev", "test"), default="dev")
-        p.add_argument("--root", help="directory holding apps/ and defects/ (overrides --split)")
+        p.add_argument("--root", help="directory holding defects/ (and apps/); overrides --split")
+        p.add_argument("--apps", help="apps directory (default: the public apps/ of this repo)")
         if name == "validate":
             p.add_argument("--timeout", type=float, default=60)
         else:
-            p.add_argument("--reviewer", required=True)
+            p.add_argument("--reviewer", required=True, help="hunk-all, random, command, or module:callable")
             p.add_argument("--seed", type=int, default=0)
             p.add_argument("--json", action="store_true")
+            p.add_argument("--reviewer-timeout", type=float, default=120)
+            p.add_argument("--command", nargs=argparse.REMAINDER,
+                           help="program and args for --reviewer command; must be the last option")
     sub.add_parser("hash").add_argument("directory")
+    sub.add_parser("manifest").add_argument("directory")
+    p = sub.add_parser("hyp", help="H1 and H3 from the --json output of `run`")
+    p.add_argument("summary", help="path to a `run --json` output file")
+    p = sub.add_parser("build", help="compose defect specs with noise into items")
+    p.add_argument("specs", nargs="+")
+    p.add_argument("--out", required=True)
+    p.add_argument("--noise-dir", default=os.path.join(REPO_ROOT, "noise"))
+    p.add_argument("--apps")
     a = ap.parse_args(argv)
 
     if a.cmd == "hash":
         print(tree_hash(a.directory))
         return 0
-    defects = load_all(_root(a, ap))
+    if a.cmd == "manifest":
+        print(manifest_hash(a.directory))
+        return 0
+    if a.cmd == "hyp":
+        with open(a.summary, encoding="utf-8") as fh:
+            print(json.dumps(hypotheses(json.load(fh)), indent=2))
+        return 0
+    if a.cmd == "build":
+        from .build import write_items
+        return write_items(a.specs, a.out, a.noise_dir, a.apps or os.path.join(REPO_ROOT, "apps"))
+    defects = _load(a, ap)
     if not defects:
         print("no defects found", file=sys.stderr)
         return 1
@@ -70,6 +93,10 @@ def main(argv=None):
                                "".join("\n     - " + p for p in problems)))
         print("%d defect(s), %d invalid" % (len(defects), bad))
         return 1 if bad else 0
-    summary = run(defects, _reviewer(a, ap))
+    try:
+        summary = run(defects, _reviewer(a, ap))
+    except reviewers.ReviewerError as e:
+        print("reviewer error: %s" % e, file=sys.stderr)
+        return 1
     print(json.dumps(summary, indent=2) if a.json else format_report(summary))
     return 0

@@ -155,3 +155,30 @@ def build_item(app_dir, spec, noise):
         "clean.patch": join(clean_patches),
         "stats": {"hunks": n, "files": len(bug_patches), "noise_groups": len(chosen)},
     }
+
+
+def write_items(spec_paths, out_root, noise_dir, apps_dir):
+    """Build every spec file into out_root/defects/<id>/; returns an exit code."""
+    import json
+    bad = 0
+    for sp in spec_paths:
+        with open(sp, encoding="utf-8") as fh:
+            spec = json.load(fh)
+        try:
+            with open(os.path.join(noise_dir, spec["app"] + ".json"), encoding="utf-8") as fh:
+                noise = json.load(fh)
+            item = build_item(os.path.join(apps_dir, spec["app"]), spec, noise)
+        except (BuildError, OSError, KeyError) as e:
+            print("FAIL %s: %s" % (spec.get("id", sp), e))
+            bad += 1
+            continue
+        d = os.path.join(out_root, "defects", spec["id"])
+        os.makedirs(d, exist_ok=True)
+        for name in ("bug.patch", "clean.patch"):
+            with open(os.path.join(d, name), "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(item[name])
+        with open(os.path.join(d, "defect.json"), "w", encoding="utf-8", newline="\n") as fh:
+            json.dump(item["defect.json"], fh, indent=2)
+            fh.write("\n")
+        print("ok   %s %s" % (spec["id"], item["stats"]))
+    return 1 if bad else 0

@@ -37,6 +37,6 @@ def test_defect_validates(d):
 
 
 def test_flag_every_hunk_baseline_finds_everything_and_alarms_on_everything(capsys):
-    assert cli.main(["score", "--reviewer", "flag-every-hunk", "--json"]) == 0
+    assert cli.main(["score", "--reviewer", "hunk-all", "--json"]) == 0
     out = capsys.readouterr().out
     assert '"found": %d' % len(DEFECTS) in out

@@ -58,11 +58,12 @@ def load_one(defect_dir, apps_dir):
                   bug, clean, os.path.join(apps_dir, m["app"]))
 
 
-def load_all(root):
+def load_all(root, apps_dir=None):
+    """Load every defect under root/defects; apps come from apps_dir (default root/apps)."""
     ddir = os.path.join(root, "defects")
     if not os.path.isdir(ddir):
         return []
-    return [load_one(os.path.join(ddir, n), os.path.join(root, "apps"))
+    return [load_one(os.path.join(ddir, n), apps_dir or os.path.join(root, "apps"))
             for n in sorted(os.listdir(ddir)) if os.path.isdir(os.path.join(ddir, n))]
 
 
@@ -77,3 +78,16 @@ def tree_hash(directory):
             with open(full, "rb") as fh:
                 lines.append("%s\0%s\n" % (rel, hashlib.sha256(fh.read()).hexdigest()))
     return hashlib.sha256("".join(sorted(lines)).encode("utf-8")).hexdigest()
+
+
+def item_hash(item_dir):
+    """Hash of one defect item (its defect.json, bug.patch and clean.patch bytes)."""
+    return tree_hash(item_dir)
+
+
+def manifest_hash(root):
+    """sha256 over the sorted item hashes of root/defects/*; this is prereg/split.sha256."""
+    ddir = os.path.join(root, "defects")
+    hs = sorted(item_hash(os.path.join(ddir, n)) for n in os.listdir(ddir)
+                if os.path.isdir(os.path.join(ddir, n)))
+    return hashlib.sha256("".join(h + "\n" for h in hs).encode("utf-8")).hexdigest()

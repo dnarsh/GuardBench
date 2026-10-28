@@ -39,13 +39,13 @@ def test_validate_with_no_defects_fails(tmp_path, capsys):
 
 
 def test_score_flag_every_hunk(root, capsys):
-    assert cli.main(["score", "--root", str(root), "--reviewer", "flag-every-hunk"]) == 0
+    assert cli.main(["run", "--root", str(root), "--reviewer", "hunk-all"]) == 0
     out = capsys.readouterr().out
     assert "overall recall" in out and "1.000" in out
 
 
 def test_score_json(root, capsys):
-    cli.main(["score", "--root", str(root), "--reviewer", "random", "--seed", "3", "--json"])
+    cli.main(["run", "--root", str(root), "--reviewer", "random", "--seed", "3", "--json"])
     data = json.loads(capsys.readouterr().out)
     assert data["overall"]["n"] == 1
 
@@ -53,26 +53,26 @@ def test_score_json(root, capsys):
 def test_score_custom_reviewer_by_import_path(root, capsys, monkeypatch, tmp_path):
     (tmp_path / "myrev.py").write_text("def review(diff):\n    return []\n")
     monkeypatch.syspath_prepend(str(tmp_path))
-    assert cli.main(["score", "--root", str(root), "--reviewer", "myrev:review", "--json"]) == 0
+    assert cli.main(["run", "--root", str(root), "--reviewer", "myrev:review", "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["overall"]["found"] == 0
 
 
 def test_unknown_reviewer_is_an_error(root):
     with pytest.raises(SystemExit) as e:
-        cli.main(["score", "--root", str(root), "--reviewer", "nonsense"])
+        cli.main(["run", "--root", str(root), "--reviewer", "nonsense"])
     assert e.value.code == 2
 
 
 def test_test_split_requires_env_var(monkeypatch):
-    monkeypatch.delenv("GUARDBENCH_TEST_DIR", raising=False)
+    monkeypatch.delenv("GUARDBENCH_HELDOUT", raising=False)
     with pytest.raises(SystemExit) as e:
-        cli.main(["score", "--split", "test", "--reviewer", "random"])
+        cli.main(["run", "--split", "test", "--reviewer", "random"])
     assert e.value.code == 2
 
 
 def test_test_split_reads_env_var(root, monkeypatch, capsys):
-    monkeypatch.setenv("GUARDBENCH_TEST_DIR", str(root))
-    assert cli.main(["score", "--split", "test", "--reviewer", "flag-every-hunk"]) == 0
+    monkeypatch.setenv("GUARDBENCH_HELDOUT", str(root))
+    assert cli.main(["run", "--split", "test", "--reviewer", "hunk-all"]) == 0
 
 
 def test_hash_prints_tree_hash(root, capsys):

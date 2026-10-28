@@ -17,6 +17,35 @@ def wilson(k, n, z=1.96):
     return (max(0.0, centre - half), min(1.0, centre + half))
 
 
+def newcombe_diff(k1, n1, k2, n2, z=1.96):
+    """Newcombe hybrid score interval (method 10) for p1 - p2: (difference, lower, upper)."""
+    if n1 <= 0 or n2 <= 0:
+        raise ValueError("both groups need n > 0")
+    p1, p2 = k1 / n1, k2 / n2
+    l1, u1 = wilson(k1, n1, z)
+    l2, u2 = wilson(k2, n2, z)
+    d = p1 - p2
+    return (d, d - math.sqrt((p1 - l1) ** 2 + (u2 - p2) ** 2),
+            d + math.sqrt((u1 - p1) ** 2 + (p2 - l2) ** 2))
+
+
+def h1_verdict(k, n, bound=0.75):
+    """H1 (recall below `bound`): supported / refuted / inconclusive by the Wilson interval."""
+    lo, hi = wilson(k, n)
+    return "supported" if hi < bound else "refuted" if lo >= bound else "inconclusive"
+
+
+def hypotheses(summary):
+    """H1 on overall recall and H3 (guard minus logic) from a `run --json` summary."""
+    o = summary["overall"]
+    g, lg = summary["per_group"].get("guard"), summary["per_group"].get("logic")
+    out = {"H1": {"recall": o["recall"], "ci": o["ci"], "verdict": h1_verdict(o["found"], o["n"])}}
+    if g and lg:
+        d, lo, hi = newcombe_diff(g["found"], g["n"], lg["found"], lg["n"])
+        out["H3"] = {"diff": d, "ci": [lo, hi], "verdict": "supported" if lo > 0 or hi < 0 else "inconclusive"}
+    return out
+
+
 def _rate(k, n):
     return {"n": n, "found": k, "recall": k / n if n else None, "ci": wilson(k, n)}
 
