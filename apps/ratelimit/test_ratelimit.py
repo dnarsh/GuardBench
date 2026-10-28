@@ -1,0 +1,67 @@
+import threading
+import unittest
+
+import limiter as limiter_module
+from api import handle
+from limiter import RateLimiter
+
+
+class Clock:
+    def __init__(self, now=100.0):
+        self.now = now
+
+    def __call__(self):
+        return self.now
+
+
+class LimiterTests(unittest.TestCase):
+    def test_exactly_limit_requests_are_allowed(self):
+        lim = RateLimiter(limit=3, clock=Clock())
+        self.assertEqual([lim.allow("a") for _ in range(5)], [True, True, True, False, False])
+
+    def test_keys_are_independent(self):
+        lim = RateLimiter(limit=1, clock=Clock())
+        self.assertTrue(lim.allow("a"))
+        self.assertTrue(lim.allow("b"))
+        self.assertFalse(lim.allow("a"))
+
+    def test_window_rolls_over(self):
+        clock = Clock(100.0)
+        lim = RateLimiter(limit=1, window=60, clock=clock)
+        self.assertTrue(lim.allow("a"))
+        self.assertFalse(lim.allow("a"))
+        clock.now = 170.0
+        self.assertTrue(lim.allow("a"))
+
+    def test_api_returns_429_after_limit(self):
+        lim = RateLimiter(limit=2, clock=Clock())
+        codes = [handle(lim, "1.2.3.4", "/x")[0] for _ in range(3)]
+        self.assertEqual(codes, [200, 200, 429])
+
+    def test_concurrent_requests_cannot_exceed_limit(self):
+        lim = RateLimiter(limit=1, clock=Clock())
+        barrier = threading.Barrier(2, timeout=0.5)
+
+        def hook():
+            try:
+                barrier.wait()
+            except threading.BrokenBarrierError:
+                pass
+
+        results = []
+        original = limiter_module._checkpoint
+        limiter_module._checkpoint = hook
+        try:
+            threads = [threading.Thread(target=lambda: results.append(lim.allow("a")))
+                       for _ in range(2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+        finally:
+            limiter_module._checkpoint = original
+        self.assertEqual(sum(results), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

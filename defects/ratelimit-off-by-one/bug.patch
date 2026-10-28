@@ -1,0 +1,11 @@
+--- a/limiter.py
++++ b/limiter.py
+@@ -21,7 +21,7 @@
+         """Count one request for key; False once the window's limit is used up."""
+         with self._lock:
+             now = self.clock()
+-            if self.store.count(key, now) >= self.limit:
++            if self.store.count(key, now) > self.limit:
+                 return False
+             _checkpoint()
+             self.store.incr(key, now)

@@ -1,0 +1,9 @@
+{
+  "id": "ratelimit-off-by-one",
+  "app": "ratelimit",
+  "class": "off-by-one",
+  "test_module": "test_ratelimit",
+  "file": "limiter.py",
+  "start": 24,
+  "end": 24
+}
