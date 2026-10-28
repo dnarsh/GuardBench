@@ -1,0 +1,14 @@
+--- a/policy.py
++++ b/policy.py
+@@ -13,8 +13,7 @@
+ 
+     def is_allowed(self, user, action):
+         """True only when the user's role grants the action."""
+-        try:
+-            role = self.assignments[user]
+-            return action in ROLES[role]
+-        except KeyError:
++        role = self.assignments.get(user)
++        if role not in ROLES:
+             return False
++        return action in ROLES[role]

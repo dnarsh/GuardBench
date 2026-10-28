@@ -1,0 +1,11 @@
+--- a/service.py
++++ b/service.py
+@@ -19,7 +19,7 @@
+             self.audit.record("login_failed", user=user)
+             return None
+         token = issue(self.secret, user)
+-        self.audit.record("login_ok", user=user)
++        self.audit.record("login_ok", user=user, sid=hashlib.sha256(token.encode()).hexdigest()[:8])
+         return token
+ 
+     def authorize(self, token, action):

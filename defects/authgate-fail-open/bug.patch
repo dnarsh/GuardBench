@@ -1,0 +1,8 @@
+--- a/policy.py
++++ b/policy.py
+@@ -17,4 +17,4 @@
+             role = self.assignments[user]
+             return action in ROLES[role]
+         except KeyError:
+-            return False
++            return True
