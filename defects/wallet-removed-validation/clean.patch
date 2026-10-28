@@ -1,0 +1,11 @@
+--- a/accounts.py
++++ b/accounts.py
+@@ -32,7 +32,7 @@
+             self.ledger.post(name, -amount, "withdraw")
+ 
+     def transfer(self, src, dst, amount):
+-        if amount <= 0:
++        if not isinstance(amount, int) or amount <= 0:
+             raise ValueError("amount must be positive")
+         if amount > MAX_TRANSFER:
+             raise ValueError("amount over limit")

@@ -1,0 +1,11 @@
+--- a/accounts.py
++++ b/accounts.py
+@@ -26,7 +26,7 @@
+ 
+     def withdraw(self, name, amount):
+         with self._lock:
+-            if self.ledger.balance(name) < amount:
++            if self.balance(name) < amount:
+                 raise InsufficientFunds(name)
+             _checkpoint()
+             self.ledger.post(name, -amount, "withdraw")
