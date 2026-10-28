@@ -1,23 +1,43 @@
 """Defect validation: the app's test must pass on the clean app and clean twin, fail on the bug.
 
 SECURITY MODEL (read before validating defects you did not write): this executes Python
-code from the app, the patches and the test module. Hygiene only, NOT a sandbox:
-the code runs in a throwaway copy of the app in a fresh temp dir, with a scrubbed
-environment, no stdin, `python -E -s -B`, and a hard timeout. It can still read files
-and use the network as your user. Patches are parsed strictly and cannot write outside
-the copy. Validate only defects from sources you trust, ideally inside a container/VM.
+code from the app, the patches and the test module. It is hygiene, NOT a sandbox.
+
+What it does: a throwaway copy of the app in a fresh temp dir; a scrubbed environment (only
+what Python needs to start, plus TMP/HOME pointing at a private temp dir); no stdin;
+`python -E -s -B`; a hard timeout that kills the whole process tree (process group on POSIX,
+`taskkill /T` on Windows), also after a normal exit so stray children cannot linger; output
+read through a pipe and capped (only the tail is kept, the run is killed past MAX_TOTAL
+bytes); and a Python-level block on outgoing sockets (connect, create_connection, DNS).
+
+What it does NOT do: it is no container. The code still runs as your user and can read
+and write any file you can, and can start programs. The network block is a monkey-patch,
+so ctypes, subprocess (curl) or `_socket` get around it. A process that leaves the process
+group (POSIX setsid) or is re-parented after its parent exits (Windows) can outlive the
+kill. There is no memory or CPU limit. Validate only defects from sources you trust,
+ideally inside a container or VM.
 """
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import threading
 
 from . import patch as P
 
-MAX_OUTPUT = 4000
+MAX_OUTPUT = 4000  # tail kept for reports
+MAX_TOTAL = 4 * 1024 * 1024  # bytes of output before the run is killed
 BROKEN = ("SyntaxError", "IndentationError", "ImportError", "ModuleNotFoundError")
+# Runs the test module with outgoing network calls turned into errors.
+BOOT = ("import socket, sys, unittest\n"
+        "def deny(*a, **k):\n    raise OSError('network disabled by guardbench')\n"
+        "for n in ('connect', 'connect_ex'):\n    setattr(socket.socket, n, deny)\n"
+        "for n in ('create_connection', 'getaddrinfo', 'gethostbyname', 'gethostbyname_ex'):\n"
+        "    setattr(socket, n, deny)\n"
+        "unittest.main(module=None, argv=['unittest', '-q', sys.argv[1]])\n")
 
 
 def _copy_app(src, dst):
@@ -28,22 +48,70 @@ def _copy_app(src, dst):
     shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__"))
 
 
-def _env(tmp):
-    env = {k: tmp for k in ("TMP", "TEMP", "TMPDIR", "HOME", "USERPROFILE")}
+def _env(home):
+    env = {k: home for k in ("TMP", "TEMP", "TMPDIR", "HOME", "USERPROFILE")}
     if os.environ.get("SYSTEMROOT"):  # Windows needs it to start Python
         env["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
     return env
 
 
+def kill_tree(p):
+    """Kill p and every descendant that is still attached to it."""
+    if os.name == "nt":
+        tk = os.path.join(os.environ.get("SYSTEMROOT", r"C:\Windows"), "System32", "taskkill.exe")
+        subprocess.run([tk, "/F", "/T", "/PID", str(p.pid)], stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL)
+    else:
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except OSError:
+            pass
+    try:
+        p.kill()
+    except OSError:
+        pass
+
+
 def run_tests(workdir, module, timeout):
     """Return (status, output); status is pass, fail, timeout or error (did not really run)."""
-    cmd = [sys.executable, "-E", "-s", "-B", "-m", "unittest", "-q", module]
+    home = tempfile.mkdtemp(prefix="guardbench-home-")
+    tail, seen, over = bytearray(), [0], threading.Event()
     try:
-        p = subprocess.run(cmd, cwd=workdir, env=_env(workdir), stdin=subprocess.DEVNULL,
-                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout)
-    except subprocess.TimeoutExpired:
+        p = subprocess.Popen([sys.executable, "-E", "-s", "-B", "-c", BOOT, module], cwd=workdir,
+                             env=_env(home), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT, start_new_session=(os.name != "nt"))
+
+        def pump():
+            while True:
+                b = p.stdout.read1(65536)
+                if not b:
+                    return
+                seen[0] += len(b)
+                tail.extend(b)
+                del tail[:-MAX_OUTPUT]
+                if seen[0] > MAX_TOTAL:
+                    over.set()
+                    kill_tree(p)
+                    return
+
+        reader = threading.Thread(target=pump, daemon=True)
+        reader.start()
+        timed_out = False
+        try:
+            p.wait(timeout)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+        kill_tree(p)  # also after a normal exit: leftovers must not outlive the run
+        p.wait()
+        reader.join(5)
+        p.stdout.close()
+    finally:
+        shutil.rmtree(home, ignore_errors=True)
+    out = bytes(tail).decode("utf-8", "replace")
+    if over.is_set():
+        return "error", "output limit exceeded (%d bytes)\n%s" % (MAX_TOTAL, out)
+    if timed_out:
         return "timeout", ""
-    out = p.stdout.decode("utf-8", "replace")[-MAX_OUTPUT:]
     ran = re.search(r"Ran (\d+) test", out)
     if p.returncode == 0:
         return ("pass" if ran and int(ran.group(1)) > 0 else "error"), out
