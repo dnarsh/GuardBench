@@ -10,6 +10,8 @@ import difflib
 import os
 import random
 
+from .defects import NAME_RE
+
 GAP = 8  # noise must stay this many lines away from the defect, so hunks never merge
 HUNKS = (8, 25)
 FILES = (3, 6)
@@ -165,6 +167,8 @@ def write_items(spec_paths, out_root, noise_dir, apps_dir):
         with open(sp, encoding="utf-8") as fh:
             spec = json.load(fh)
         try:
+            if not (NAME_RE.match(str(spec.get("id"))) and NAME_RE.match(str(spec.get("app")))):
+                raise BuildError("bad id or app name")
             with open(os.path.join(noise_dir, spec["app"] + ".json"), encoding="utf-8") as fh:
                 noise = json.load(fh)
             item = build_item(os.path.join(apps_dir, spec["app"]), spec, noise)

@@ -86,3 +86,16 @@ def test_ambiguous_or_missing_edit_text_is_an_error(app):
 def test_noise_applies_cleanly_to_an_app(app):
     assert noise_applies(app, NOISE) is None
     assert "not found" in noise_applies(app, [[{"file": "mod.py", "old": "zzz", "new": "y"}]])
+
+
+def test_write_items_refuses_ids_that_could_escape_the_output_dir(app, tmp_path):
+    from guardbench.build import write_items
+    spec = dict(SPEC, id="../evil")
+    sp = tmp_path / "s.json"
+    sp.write_text(json.dumps(spec))
+    nd = tmp_path / "noise"
+    nd.mkdir()
+    (nd / "app.json").write_text(json.dumps(NOISE))
+    out = tmp_path / "out"
+    assert write_items([str(sp)], str(out), str(nd), str(tmp_path)) == 1
+    assert not (tmp_path / "evil").exists() and not out.exists()
