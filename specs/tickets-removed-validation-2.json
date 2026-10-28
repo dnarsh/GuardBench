@@ -1,0 +1,20 @@
+{
+ "id": "tickets-removed-validation-2",
+ "app": "tickets",
+ "class": "removed-validation",
+ "file": "intake.py",
+ "bug": [
+  {
+   "file": "intake.py",
+   "old": "    if name not in desk.agents:\n        raise ValueError(\"unknown agent\")\n",
+   "new": ""
+  }
+ ],
+ "clean": [
+  {
+   "file": "intake.py",
+   "old": "    if name not in desk.agents:\n        raise ValueError(\"unknown agent\")\n",
+   "new": "    if desk.agents.get(name) is None:\n        raise ValueError(\"unknown agent\")\n"
+  }
+ ]
+}

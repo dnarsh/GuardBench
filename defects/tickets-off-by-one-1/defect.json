@@ -1,0 +1,9 @@
+{
+  "id": "tickets-off-by-one-1",
+  "app": "tickets",
+  "class": "off-by-one",
+  "test_module": "test_tickets",
+  "file": "paging.py",
+  "start": 5,
+  "end": 5
+}

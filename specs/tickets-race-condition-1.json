@@ -1,0 +1,20 @@
+{
+ "id": "tickets-race-condition-1",
+ "app": "tickets",
+ "class": "race-condition",
+ "file": "core.py",
+ "bug": [
+  {
+   "file": "core.py",
+   "old": "        with self.lock:\n            tid = self.next_id\n            checkpoint(\"open\")\n            self.next_id = tid + 1\n",
+   "new": "        tid = self.next_id\n        checkpoint(\"open\")\n        with self.lock:\n            self.next_id = tid + 1\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "core.py",
+   "old": "        with self.lock:\n            tid = self.next_id\n            checkpoint(\"open\")\n            self.next_id = tid + 1\n",
+   "new": "        with self.lock:\n            tid = self.next_id\n            checkpoint(\"open\")\n            self.next_id += 1\n"
+  }
+ ]
+}

@@ -1,0 +1,132 @@
+--- a/core.py
++++ b/core.py
+@@ -1,4 +1,7 @@
+-"""Ticket desk state: tickets, agents and the shared lock."""
++"""Ticket desk state: tickets, agents and the shared lock.
++
++Part of the tickets app; behaviour is described in its README.
++"""
+ import threading
+ 
+ HOOKS = {}
+@@ -12,7 +15,9 @@
+ 
+ 
+ class Desk:
++    """Class holding Desk."""
+     def __init__(self):
++        """Helper: init."""
+         self.tickets = {}
+         self.agents = {}
+         self.api_keys = {}
+@@ -20,6 +25,7 @@
+         self.next_id = 1
+ 
+     def add_agent(self, name, role, api_key):
++        """Helper: add agent."""
+         self.agents[name] = role
+         self.api_keys[name] = api_key
+ 
+@@ -34,6 +40,7 @@
+         return tid
+ 
+     def claim(self, tid, agent):
++        """Helper: claim."""
+         with self.lock:
+             ticket = self.tickets[tid]
+             if ticket["assignee"] is not None:
+@@ -43,8 +50,10 @@
+             return True
+ 
+     def close(self, tid):
++        """Helper: close."""
+         self.tickets[tid]["status"] = "closed"
+ 
+     def all_open(self):
++        """Helper: all open."""
+         return [t for t in self.tickets.values() if t["status"] == "open"]
+ 
+--- a/intake.py
++++ b/intake.py
+@@ -1,9 +1,13 @@
+-"""Checks on data that comes in from users."""
++"""Checks on data that comes in from users.
++
++Part of the tickets app; behaviour is described in its README.
++"""
+ MAX_TITLE = 120
+ PRIORITIES = ("low", "normal", "high")
+ 
+ 
+ def check_new(title, body, priority):
++    """Helper: check new."""
+     if not isinstance(title, str) or not title.strip():
+         raise ValueError("title required")
+     if len(title) > MAX_TITLE:
+@@ -14,6 +18,7 @@
+ 
+ 
+ def check_assignee(desk, name):
++    """Helper: check assignee."""
+     if name not in desk.agents:
+         raise ValueError("unknown agent")
+     return name
+--- a/paging.py
++++ b/paging.py
+@@ -2,7 +2,7 @@
+ 
+ 
+ def page(items, number, size):
+-    start = (number - 1) * size
++    start = number * size
+     return items[start:start + size]
+ 
+ 
+--- a/policy.py
++++ b/policy.py
+@@ -1,8 +1,12 @@
+-"""Who may do what on the desk."""
++"""Who may do what on the desk.
++
++Part of the tickets app; behaviour is described in its README.
++"""
+ import hmac
+ 
+ 
+ def authenticate(desk, name, key):
++    """Helper: authenticate."""
+     expected = desk.api_keys.get(name)
+     if expected is None:
+         return False
+@@ -10,6 +14,7 @@
+ 
+ 
+ def can_close(desk, name, ticket):
++    """Helper: can close."""
+     try:
+         role = desk.agents[name]
+     except KeyError:
+--- a/views.py
++++ b/views.py
+@@ -1,14 +1,20 @@
+-"""Text and dict views of desk data."""
++"""Text and dict views of desk data.
++
++Part of the tickets app; behaviour is described in its README.
++"""
+ 
+ 
+ def agent_summary(desk, name):
++    """Helper: agent summary."""
+     return {"name": name, "role": desk.agents[name]}
+ 
+ 
+ def login_failed(name, key):
++    """Helper: login failed."""
+     return "login failed for %s" % name
+ 
+ 
+ def ticket_line(ticket):
++    """Helper: ticket line."""
+     return "#%d [%s] %s" % (ticket["id"], ticket["priority"], ticket["title"])
+ 

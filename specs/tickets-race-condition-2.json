@@ -1,0 +1,20 @@
+{
+ "id": "tickets-race-condition-2",
+ "app": "tickets",
+ "class": "race-condition",
+ "file": "core.py",
+ "bug": [
+  {
+   "file": "core.py",
+   "old": "        with self.lock:\n            ticket = self.tickets[tid]\n            if ticket[\"assignee\"] is not None:\n                return False\n            checkpoint(\"claim\")\n            ticket[\"assignee\"] = agent\n            return True\n",
+   "new": "        ticket = self.tickets[tid]\n        if ticket[\"assignee\"] is not None:\n            return False\n        checkpoint(\"claim\")\n        with self.lock:\n            ticket[\"assignee\"] = agent\n        return True\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "core.py",
+   "old": "        with self.lock:\n            ticket = self.tickets[tid]\n            if ticket[\"assignee\"] is not None:\n                return False\n            checkpoint(\"claim\")\n            ticket[\"assignee\"] = agent\n            return True\n",
+   "new": "        with self.lock:\n            ticket = self.tickets[tid]\n            if ticket[\"assignee\"]:\n                return False\n            checkpoint(\"claim\")\n            ticket[\"assignee\"] = agent\n            return True\n"
+  }
+ ]
+}

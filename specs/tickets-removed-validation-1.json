@@ -1,0 +1,20 @@
+{
+ "id": "tickets-removed-validation-1",
+ "app": "tickets",
+ "class": "removed-validation",
+ "file": "intake.py",
+ "bug": [
+  {
+   "file": "intake.py",
+   "old": "    if len(title) > MAX_TITLE:\n        raise ValueError(\"title too long\")\n",
+   "new": ""
+  }
+ ],
+ "clean": [
+  {
+   "file": "intake.py",
+   "old": "    if len(title) > MAX_TITLE:\n        raise ValueError(\"title too long\")\n",
+   "new": "    if len(title.strip()) > MAX_TITLE:\n        raise ValueError(\"title too long\")\n"
+  }
+ ]
+}

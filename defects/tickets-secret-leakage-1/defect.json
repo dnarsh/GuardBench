@@ -1,0 +1,9 @@
+{
+  "id": "tickets-secret-leakage-1",
+  "app": "tickets",
+  "class": "secret-leakage",
+  "test_module": "test_tickets",
+  "file": "views.py",
+  "start": 5,
+  "end": 5
+}

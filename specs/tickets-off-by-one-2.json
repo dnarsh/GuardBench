@@ -1,0 +1,20 @@
+{
+ "id": "tickets-off-by-one-2",
+ "app": "tickets",
+ "class": "off-by-one",
+ "file": "paging.py",
+ "bug": [
+  {
+   "file": "paging.py",
+   "old": "    return [t for t in tickets if today - t[\"opened\"] >= sla_days]\n",
+   "new": "    return [t for t in tickets if today - t[\"opened\"] > sla_days]\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "paging.py",
+   "old": "    return [t for t in tickets if today - t[\"opened\"] >= sla_days]\n",
+   "new": "    return [t for t in tickets if t[\"opened\"] + sla_days <= today]\n"
+  }
+ ]
+}

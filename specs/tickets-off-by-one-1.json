@@ -1,0 +1,20 @@
+{
+ "id": "tickets-off-by-one-1",
+ "app": "tickets",
+ "class": "off-by-one",
+ "file": "paging.py",
+ "bug": [
+  {
+   "file": "paging.py",
+   "old": "    start = (number - 1) * size\n",
+   "new": "    start = number * size\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "paging.py",
+   "old": "    start = (number - 1) * size\n",
+   "new": "    start = size * (number - 1)\n"
+  }
+ ]
+}

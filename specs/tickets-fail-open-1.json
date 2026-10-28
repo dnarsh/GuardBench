@@ -1,0 +1,20 @@
+{
+ "id": "tickets-fail-open-1",
+ "app": "tickets",
+ "class": "fail-open",
+ "file": "policy.py",
+ "bug": [
+  {
+   "file": "policy.py",
+   "old": "    expected = desk.api_keys.get(name)\n    if expected is None:\n        return False\n",
+   "new": "    expected = desk.api_keys.get(name)\n    if expected is None:\n        return True\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "policy.py",
+   "old": "    expected = desk.api_keys.get(name)\n    if expected is None:\n        return False\n",
+   "new": "    expected = desk.api_keys.get(name)\n    if not expected:\n        return False\n"
+  }
+ ]
+}

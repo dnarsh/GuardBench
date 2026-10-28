@@ -1,0 +1,163 @@
+[
+ [
+  {
+   "file": "core.py",
+   "old": "\"\"\"Ticket desk state: tickets, agents and the shared lock.\"\"\"\n",
+   "new": "\"\"\"Ticket desk state: tickets, agents and the shared lock.\n\nPart of the tickets app; behaviour is described in its README.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "core.py",
+   "old": "class Desk:\n",
+   "new": "class Desk:\n    \"\"\"Class holding Desk.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "core.py",
+   "old": "    def __init__(self):\n",
+   "new": "    def __init__(self):\n        \"\"\"Helper: init.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "core.py",
+   "old": "    def add_agent(self, name, role, api_key):\n",
+   "new": "    def add_agent(self, name, role, api_key):\n        \"\"\"Helper: add agent.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "core.py",
+   "old": "    def open_ticket(self, title, body, author, priority=\"normal\", day=0):\n",
+   "new": "    def open_ticket(self, title, body, author, priority=\"normal\", day=0):\n        \"\"\"Helper: open ticket.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "core.py",
+   "old": "    def claim(self, tid, agent):\n",
+   "new": "    def claim(self, tid, agent):\n        \"\"\"Helper: claim.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "core.py",
+   "old": "    def close(self, tid):\n",
+   "new": "    def close(self, tid):\n        \"\"\"Helper: close.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "core.py",
+   "old": "    def all_open(self):\n",
+   "new": "    def all_open(self):\n        \"\"\"Helper: all open.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "intake.py",
+   "old": "\"\"\"Checks on data that comes in from users.\"\"\"\n",
+   "new": "\"\"\"Checks on data that comes in from users.\n\nPart of the tickets app; behaviour is described in its README.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "intake.py",
+   "old": "def check_new(title, body, priority):\n",
+   "new": "def check_new(title, body, priority):\n    \"\"\"Helper: check new.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "intake.py",
+   "old": "def check_assignee(desk, name):\n",
+   "new": "def check_assignee(desk, name):\n    \"\"\"Helper: check assignee.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "paging.py",
+   "old": "\"\"\"Pages and service-level windows.\"\"\"\n",
+   "new": "\"\"\"Pages and service-level windows.\n\nPart of the tickets app; behaviour is described in its README.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "paging.py",
+   "old": "def page(items, number, size):\n",
+   "new": "def page(items, number, size):\n    \"\"\"Helper: page.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "paging.py",
+   "old": "def overdue(tickets, today, sla_days):\n",
+   "new": "def overdue(tickets, today, sla_days):\n    \"\"\"Helper: overdue.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "paging.py",
+   "old": "def page_count(total, size):\n",
+   "new": "def page_count(total, size):\n    \"\"\"Helper: page count.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "policy.py",
+   "old": "\"\"\"Who may do what on the desk.\"\"\"\n",
+   "new": "\"\"\"Who may do what on the desk.\n\nPart of the tickets app; behaviour is described in its README.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "policy.py",
+   "old": "def authenticate(desk, name, key):\n",
+   "new": "def authenticate(desk, name, key):\n    \"\"\"Helper: authenticate.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "policy.py",
+   "old": "def can_close(desk, name, ticket):\n",
+   "new": "def can_close(desk, name, ticket):\n    \"\"\"Helper: can close.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "policy.py",
+   "old": "def can_view(desk, name, ticket):\n",
+   "new": "def can_view(desk, name, ticket):\n    \"\"\"Helper: can view.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "views.py",
+   "old": "\"\"\"Text and dict views of desk data.\"\"\"\n",
+   "new": "\"\"\"Text and dict views of desk data.\n\nPart of the tickets app; behaviour is described in its README.\n\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "views.py",
+   "old": "def agent_summary(desk, name):\n",
+   "new": "def agent_summary(desk, name):\n    \"\"\"Helper: agent summary.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "views.py",
+   "old": "def login_failed(name, key):\n",
+   "new": "def login_failed(name, key):\n    \"\"\"Helper: login failed.\"\"\"\n"
+  }
+ ],
+ [
+  {
+   "file": "views.py",
+   "old": "def ticket_line(ticket):\n",
+   "new": "def ticket_line(ticket):\n    \"\"\"Helper: ticket line.\"\"\"\n"
+  }
+ ]
+]

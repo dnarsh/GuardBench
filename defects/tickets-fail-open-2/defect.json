@@ -1,0 +1,9 @@
+{
+  "id": "tickets-fail-open-2",
+  "app": "tickets",
+  "class": "fail-open",
+  "test_module": "test_tickets",
+  "file": "policy.py",
+  "start": 16,
+  "end": 19
+}

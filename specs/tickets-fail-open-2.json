@@ -1,0 +1,20 @@
+{
+ "id": "tickets-fail-open-2",
+ "app": "tickets",
+ "class": "fail-open",
+ "file": "policy.py",
+ "bug": [
+  {
+   "file": "policy.py",
+   "old": "    try:\n        role = desk.agents[name]\n    except KeyError:\n        return False\n",
+   "new": "    try:\n        role = desk.agents[name]\n    except KeyError:\n        return True\n"
+  }
+ ],
+ "clean": [
+  {
+   "file": "policy.py",
+   "old": "    try:\n        role = desk.agents[name]\n    except KeyError:\n        return False\n",
+   "new": "    role = desk.agents.get(name)\n    if role is None:\n        return False\n"
+  }
+ ]
+}

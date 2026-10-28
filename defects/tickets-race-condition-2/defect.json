@@ -1,0 +1,9 @@
+{
+  "id": "tickets-race-condition-2",
+  "app": "tickets",
+  "class": "race-condition",
+  "test_module": "test_tickets",
+  "file": "core.py",
+  "start": 44,
+  "end": 50
+}
