@@ -1,6 +1,6 @@
 import pytest
 
-from guardbench.scoring import h1_verdict, newcombe_diff, wilson
+from guardbench.scoring import h1_verdict, hypotheses, newcombe_diff, wilson
 
 
 def test_newcombe_matches_the_published_worked_example():
@@ -46,3 +46,83 @@ def test_h1_verdict_follows_the_preregistered_rule():
     assert h1_verdict(7, 10) == "inconclusive"
     assert wilson(60, 100)[1] < 0.75 and h1_verdict(60, 100) == "supported"
     assert h1_verdict(0, 0) == "inconclusive"
+
+
+def _hypothesis_summary():
+    def rate(found, n):
+        return {"found": found, "n": n, "recall": found / n, "ci": wilson(found, n)}
+
+    return {
+        "overall": rate(0, 100),
+        "per_group": {"guard": rate(0, 60), "logic": rate(0, 40)},
+    }
+
+
+def _analysis_metadata(**changes):
+    metadata = {
+        "schema_version": 1,
+        "purpose": "confirmatory",
+        "split": "heldout",
+        "protocol": "prereg-v3",
+        "dataset": {"manifest": "a" * 64, "apps_hash": "b" * 64},
+        "reviewer": {"label": "synthetic model", "role": "model", "transport": "command"},
+    }
+    metadata.update(changes)
+    return metadata
+
+
+def _assert_descriptive_hypotheses(result):
+    # These counts would support H1 without an eligibility check. Check the public
+    # result directly so regressions fail on a scientific claim, not a missing key.
+    assert "verdict" not in result.get("H1", {}), result
+    assert "verdict" not in result.get("H3", {}), result
+    assert result.get("analysis_status") == "not_evaluated", result
+    assert isinstance(result.get("analysis_reasons"), list), result
+    assert result.get("analysis_reasons"), result
+    assert result.get("H1", {}).get("recall") == 0.0
+    assert result.get("H1", {}).get("ci") == pytest.approx(wilson(0, 100))
+    assert result.get("H3", {}).get("diff") == 0.0
+    assert result.get("H3", {}).get("ci") == pytest.approx(newcombe_diff(0, 60, 0, 40)[1:])
+
+
+def test_hypotheses_missing_analysis_metadata_are_descriptive_only():
+    _assert_descriptive_hypotheses(hypotheses(_hypothesis_summary()))
+
+
+@pytest.mark.parametrize("metadata", [None, {}, {
+    "purpose": "confirmatory", "split": "heldout", "reviewer": "synthetic model",
+}], ids=["null", "empty", "unversioned"])
+def test_hypotheses_legacy_analysis_metadata_are_descriptive_only(metadata):
+    summary = _hypothesis_summary()
+    summary["analysis"] = metadata
+    _assert_descriptive_hypotheses(hypotheses(summary))
+
+
+@pytest.mark.parametrize("split", ["dev", "custom"])
+def test_hypotheses_dev_or_custom_split_are_descriptive_only(split):
+    summary = _hypothesis_summary()
+    summary["analysis"] = _analysis_metadata(split=split)
+    _assert_descriptive_hypotheses(hypotheses(summary))
+
+
+def test_hypotheses_pilot_purpose_is_descriptive_only():
+    summary = _hypothesis_summary()
+    summary["analysis"] = _analysis_metadata(purpose="pilot")
+    _assert_descriptive_hypotheses(hypotheses(summary))
+
+
+@pytest.mark.parametrize("role", ["baseline", "toy", "unknown"])
+def test_hypotheses_baseline_toy_or_unknown_role_are_descriptive_only(role):
+    summary = _hypothesis_summary()
+    summary["analysis"] = _analysis_metadata(
+        reviewer={"label": "synthetic model", "role": role, "transport": "command"})
+    _assert_descriptive_hypotheses(hypotheses(summary))
+
+
+def test_hypotheses_current_v3_cohort_cannot_be_promoted_by_supplied_flags():
+    summary = _hypothesis_summary()
+    summary["analysis"] = _analysis_metadata(dataset={
+        "manifest": "ae29a20ee5b1f9e2a86d714805f5e20776148f268ef9e45375ef70b7c5927990",
+        "apps_hash": "8b3fd772266b3ec05f073db8a3632d10ae99507c2879b304d7fb7a3b4f97cc1d",
+    }, eligible=True, mode="confirmatory", minimum=100)
+    _assert_descriptive_hypotheses(hypotheses(summary))
