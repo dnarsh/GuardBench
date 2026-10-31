@@ -331,3 +331,34 @@ def test_hypotheses_reject_an_incomplete_group_partition(confirmatory_metadata):
     del summary["per_group"]["logic"]
     with pytest.raises(ValueError):
         hypotheses(summary)
+
+
+@pytest.mark.parametrize("guard_index", [0, 1], ids=["H1", "H3"])
+def test_guard_removal_reaches_the_descriptive_verdict_oracle(
+        confirmatory_metadata, tmp_path, guard_index):
+    """Remove each verdict guard from a copy of the actual module, not a mock."""
+    import importlib.util
+    from pathlib import Path
+
+    from guardbench import scoring
+
+    original = Path(scoring.__file__).read_bytes()
+    source = original.decode("utf-8")
+    guard = 'if eligibility["eligible"]:'
+    parts = source.split(guard)
+    assert len(parts) == 3  # Both scientific verdict publication boundaries exist.
+    mutant = guard.join(parts[:guard_index + 1]) + "if True:" + guard.join(parts[guard_index + 1:])
+    path = tmp_path / "scoring_mutant.py"
+    path.write_text(mutant, encoding="utf-8")
+    spec = importlib.util.spec_from_file_location("guardbench._eligibility_mutant", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)  # Syntax/import failure is not mutation proof.
+    control = module.hypotheses(_confirmatory_summary(confirmatory_metadata))
+    assert control["analysis_status"] == "evaluated"
+    assert control["H1"]["verdict"] == "supported"
+    assert control["H3"]["verdict"] == "supported"
+    with pytest.raises(AssertionError, match="verdict"):
+        _assert_descriptive_hypotheses(module.hypotheses(_hypothesis_summary()))
+    # The unchanged real implementation still satisfies the same negative oracle.
+    _assert_descriptive_hypotheses(hypotheses(_hypothesis_summary()))
+    assert Path(scoring.__file__).read_bytes() == original
