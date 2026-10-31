@@ -15,16 +15,48 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HELDOUT_ENV = "GUARDBENCH_HELDOUT"
 
 
-def _load(a, parser):
-    """Return the defects for the chosen split. The held-out split holds only defects/;
-    its apps are the public ones (apps/ is frozen and covered by git)."""
+def _source_paths(a, parser):
+    """Resolve the effective source; a custom root always overrides the split."""
     if a.root:
-        return load_all(a.root, a.apps)
-    if a.split == "test":
+        root, apps, split = a.root, a.apps or os.path.join(a.root, "apps"), "custom"
+    elif a.split == "test":
         if not os.environ.get(HELDOUT_ENV):
             parser.error("--split test needs the %s environment variable (private test data)" % HELDOUT_ENV)
-        return load_all(os.environ[HELDOUT_ENV], a.apps or os.path.join(REPO_ROOT, "apps"))
-    return load_all(REPO_ROOT, a.apps)
+        root = os.environ[HELDOUT_ENV]
+        apps, split = a.apps or os.path.join(REPO_ROOT, "apps"), "heldout"
+    else:
+        root, apps, split = REPO_ROOT, a.apps or os.path.join(REPO_ROOT, "apps"), "dev"
+    return root, apps, split
+
+
+def _load(a, parser):
+    """Load the chosen source; held-out roots contain only defects/."""
+    root, apps, _ = _source_paths(a, parser)
+    return load_all(root, apps)
+
+
+def _dataset_hashes(root, apps):
+    return {"manifest": manifest_hash(root) if os.path.isdir(os.path.join(root, "defects")) else None,
+            "apps_hash": tree_hash(apps) if os.path.isdir(apps) else None}
+
+
+def _analysis_metadata(a, split, dataset, reviewer):
+    transport = "callable" if ":" in a.reviewer else "command" if a.reviewer == "command" else "builtin"
+    role = a.reviewer_role
+    if transport == "builtin" or reviewer is reviewers.flag_every_hunk:
+        role = "baseline"
+    toy_module = sys.modules.get("examples.toy_reviewer")
+    if toy_module is not None and reviewer is getattr(toy_module, "review", None):
+        role = "toy"
+    toy = os.path.normcase(os.path.realpath(os.path.join(REPO_ROOT, "examples", "toy_reviewer.py")))
+    command = a.command or []
+    toy_command = (any(os.path.normcase(os.path.realpath(arg)) == toy for arg in command)
+                   or any(arg == "-m" and name == "examples.toy_reviewer" for arg, name in zip(command, command[1:])))
+    if transport == "command" and toy_command:
+        role = "toy"
+    return {"schema_version": 1, "purpose": a.analysis_purpose, "split": split,
+            "protocol": a.protocol, "dataset": dataset,
+            "reviewer": {"label": a.reviewer, "role": role, "transport": transport}}
 
 
 def _reviewer(a, parser):
@@ -56,6 +88,10 @@ def main(argv=None):
             p.add_argument("--reviewer", required=True, help="hunk-all, random, command, or module:callable")
             p.add_argument("--seed", type=int, default=0)
             p.add_argument("--json", action="store_true")
+            p.add_argument("--analysis-purpose", choices=("pilot", "confirmatory"), default="pilot")
+            p.add_argument("--reviewer-role", choices=("unknown", "model", "human"), default="unknown",
+                           help="declared role, not authenticated; built-ins remain baselines")
+            p.add_argument("--protocol", default="prereg-v3", help="registered analysis cohort identifier")
             p.add_argument("--reviewer-timeout", type=float, default=120)
             p.add_argument("--command", nargs=argparse.REMAINDER,
                            help="program and args for --reviewer command; must be the last option")
@@ -89,7 +125,11 @@ def main(argv=None):
         return 0
     if a.cmd == "hyp":
         with open(a.summary, encoding="utf-8") as fh:
-            print(json.dumps(hypotheses(json.load(fh)), indent=2))
+            try:
+                result = hypotheses(json.load(fh))
+            except ValueError as e:
+                ap.error("invalid run summary: %s" % e)
+            print(json.dumps(result, indent=2))
         return 0
     if a.cmd == "report":
         from .report import build
@@ -111,7 +151,9 @@ def main(argv=None):
     if a.cmd == "build":
         from .build import write_items
         return write_items(a.specs, a.out, a.noise_dir, a.apps or os.path.join(REPO_ROOT, "apps"))
-    defects = _load(a, ap)
+    source = _source_paths(a, ap)
+    before = _dataset_hashes(*source[:2]) if a.cmd in ("run", "score") else None
+    defects = load_all(*source[:2])
     if not defects:
         print("no defects found", file=sys.stderr)
         return 1
@@ -128,9 +170,14 @@ def main(argv=None):
         print(baseline_report(defects, a.seeds))
         return 0
     try:
-        summary = run(defects, _reviewer(a, ap))
+        reviewer = _reviewer(a, ap)
+        summary = run(defects, reviewer)
     except reviewers.ReviewerError as e:
         print("reviewer error: %s" % e, file=sys.stderr)
         return 1
+    if before != _dataset_hashes(*source[:2]):
+        print("dataset changed during reviewer run; no summary emitted", file=sys.stderr)
+        return 1
+    summary["analysis"] = _analysis_metadata(a, source[2], before, reviewer)
     print(json.dumps(summary, indent=2) if a.json else format_report(summary))
     return 0

@@ -5,6 +5,7 @@ import shutil
 import pytest
 
 from guardbench import cli, report
+from guardbench.defects import load_all
 
 from test_cli import root  # noqa: F401  (fixture: a one-defect root)
 
@@ -45,6 +46,26 @@ def test_heldout_is_skipped_without_the_private_data(root, tmp_path, monkeypatch
     monkeypatch.delenv("GUARDBENCH_HELDOUT", raising=False)
     text = make(root, tmp_path)
     assert "Not available" in text
+
+
+@pytest.mark.parametrize("count", [100, 150, 151])
+def test_baseline_report_remains_descriptive_at_any_size(root, count):  # noqa: F811
+    # Repeated public fixture data exercise only the report's size boundary; these
+    # are not a real held-out cohort or independent benchmark observations.
+    dev = load_all(root)
+    heldout = [dev[0]._replace(id="synthetic-%d" % i) for i in range(count)]
+    text = report.build(dev, heldout, toy=False)
+    assert "No hypothesis (H1, H2, H3) has a verdict" in text
+    assert "Baselines and toys remain descriptive regardless of sample size" in text
+    assert "Held-out count in this run: **%d pairs**" % count in text
+    if count < report.TARGET:
+        assert "below the prospective reporting minimum" in text
+    else:
+        assert "meets the prospective size minimum only" in text
+        assert "below the prospective reporting minimum" not in text
+        assert "held-out split is below" not in text
+    assert "Precision (point only)" in text and "F1 (point only)" in text
+    assert "not hypothesis verdicts" in text
 
 
 def test_toy_reviewer_row_is_labelled_a_toy(root, tmp_path):  # noqa: F811

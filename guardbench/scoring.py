@@ -1,6 +1,7 @@
-"""Scoring: recall per class/group, clean-twin alarm rate, precision, F1, Wilson 95% intervals."""
+"""Scoring with Wilson recall/alarm intervals; precision and F1 are point estimates."""
 import math
 
+from .analysis import assess_eligibility
 from .defects import CLASSES, GROUPS
 from .matcher import is_hit
 
@@ -36,14 +37,44 @@ def h1_verdict(k, n, bound=0.75):
 
 
 def hypotheses(summary):
-    """H1 on overall recall and H3 (guard minus logic) from a `run --json` summary."""
-    o = summary["overall"]
-    g, lg = summary["per_group"].get("guard"), summary["per_group"].get("logic")
-    out = {"H1": {"recall": o["recall"], "ci": o["ci"], "verdict": h1_verdict(o["found"], o["n"])}}
-    if g and lg:
+    """Descriptive H1/H3 estimates, with verdicts only for eligible analyses.
+
+    Recompute derived values from validated counts. Metadata records provenance
+    and reviewer declarations; it is not authentication of an editable JSON file.
+    H2 is not implemented by this command.
+    """
+    if not isinstance(summary, dict):
+        raise ValueError("summary must be an object")
+    o = _summary_rate(summary.get("overall"))
+    groups = summary.get("per_group", {})
+    if not isinstance(groups, dict) or any(k not in ("guard", "logic") for k in groups):
+        raise ValueError("per_group must contain guard/logic count objects")
+    groups = {name: _summary_rate(value) for name, value in groups.items()}
+    if "per_group" in summary and (sum(r["n"] for r in groups.values()) != o["n"]
+                                   or sum(r["found"] for r in groups.values()) != o["found"]):
+        raise ValueError("group counts must partition the overall counts")
+    eligibility = assess_eligibility(summary.get("analysis"), o["n"])
+    out = {"analysis_status": "evaluated" if eligibility["eligible"] else "not_evaluated",
+           "analysis_reasons": eligibility["reasons"],
+           "H1": {"recall": o["recall"], "ci": o["ci"]}}
+    if eligibility["eligible"]:
+        out["H1"]["verdict"] = h1_verdict(o["found"], o["n"])
+    g, lg = groups.get("guard"), groups.get("logic")
+    if g and lg and g["n"] and lg["n"]:
         d, lo, hi = newcombe_diff(g["found"], g["n"], lg["found"], lg["n"])
-        out["H3"] = {"diff": d, "ci": [lo, hi], "verdict": "supported" if lo > 0 or hi < 0 else "inconclusive"}
+        out["H3"] = {"diff": d, "ci": [lo, hi]}
+        if eligibility["eligible"]:
+            out["H3"]["verdict"] = "supported" if lo > 0 or hi < 0 else "inconclusive"
     return out
+
+
+def _summary_rate(value):
+    if not isinstance(value, dict):
+        raise ValueError("rate must be a count object")
+    found, n = value.get("found"), value.get("n")
+    if type(found) is not int or type(n) is not int or not 0 <= found <= n:
+        raise ValueError("counts must be integers with 0 <= found <= n")
+    return _rate(found, n)
 
 
 def _rate(k, n):
