@@ -5,8 +5,9 @@ A public, judge-free benchmark of **seeded security-guard defects** for AI code 
 Status: **v0.2.0, work in progress, milestone 3.** The harness, 20 small apps and 130 validated
 defect/clean-twin pairs exist (30 public dev, 100 held out). No reviewer other than two trivial
 baselines and one labelled toy script has been run. **No result about any model is claimed, and no
-hypothesis (H1, H2, H3) has a verdict.** The pre-registered held-out target is 150 defects, so any
-run on the current 100 is a pilot. Numbers: [`docs/RESULTS.md`](docs/RESULTS.md).
+hypothesis (H1, H2, H3) has a verdict.** Every run on the current 100-item cohort remains a pilot.
+The prospective reporting minimum is 150, with additional eligibility requirements recorded in
+[`prereg/AMENDMENT-4.md`](prereg/AMENDMENT-4.md). Numbers: [`docs/RESULTS.md`](docs/RESULTS.md).
 
 ## What it is
 
@@ -27,7 +28,10 @@ that differs from logic defects.
 
 Scoring needs no judge model: a comment is a hit if it names the right file and lands within +-3
 lines of the planted range. Reported: recall per class and group, clean-twin alarm rate, precision,
-F1, with Wilson 95% intervals; `guardbench hyp` adds the H1 verdict and the H3 Newcombe interval.
+F1. Recall and clean-twin alarm rates have Wilson 95% intervals; differences use Newcombe
+hybrid-score intervals. **Precision and F1 are descriptive point estimates only.** `guardbench hyp`
+reports descriptive estimates with eligibility reasons; it adds H1/H3 verdicts only for an eligible,
+prospectively registered confirmatory cohort. H2 is not automatically evaluated by this command.
 
 ## Data
 
@@ -88,10 +92,11 @@ Python 3.8+, standard library only. `pytest` is needed only for the harness test
 ```
 python -m guardbench validate                    # prove every dev defect
 python -m guardbench run --reviewer random       # hunk-all, random, command, or module:callable
+python -m guardbench run --reviewer random --json > run.json
 python -m guardbench run --reviewer command --command python examples/toy_reviewer.py
 python -m guardbench baselines                   # both baselines with exact random expectation
 python -m guardbench report                      # writes docs/RESULTS.md (held-out needs GUARDBENCH_HELDOUT)
-python -m guardbench hyp run.json                # H1 verdict and H3 interval from `run --json`
+python -m guardbench hyp run.json                # descriptive estimates; verdicts require eligibility
 python -m guardbench manifest DIR                # manifest hash used for prereg/split.sha256
 python -m guardbench hash apps --only NAME ...   # hash of selected apps (the original 12 are frozen)
 python -m pytest -q
@@ -100,6 +105,35 @@ python -m pytest -q
 Reviewer interface (callable or external command with JSON on stdout): [`docs/reviewers.md`](docs/reviewers.md).
 [`examples/toy_reviewer.py`](examples/toy_reviewer.py) implements it with a 40-line heuristic, **a toy
 baseline, not a tool**. No API keys and no model calls exist in this repository.
+
+### Hypothesis reporting and run metadata
+
+`run --json` includes a versioned `analysis` block describing the effective split, protocol,
+dataset hashes, reviewer label, declared role and transport. Defaults are `--analysis-purpose pilot`,
+`--reviewer-role unknown` and `--protocol prereg-v3`. A command or Python callable is only a
+transport: it does not establish that a model or human reviewed the code. Built-in baselines are
+recorded as `baseline` even if a model/human role flag is supplied. The `report` command uses only
+baselines/toys and stays descriptive at every sample size.
+
+Eligibility requires a declared model/human reviewer using a command/callable, an explicitly
+confirmatory purpose, the held-out split, a known confirmatory protocol registry entry, its exact
+frozen manifest/apps hashes and cohort count, and the reporting minimum of at least 150.
+**The current 100-item `prereg-v3` entry is pilot-only and cannot be promoted with flags or a
+caller-supplied eligibility field.** A future confirmatory cohort needs a new prospective amendment
+and a committed registry entry; adding more items or passing `--analysis-purpose confirmatory`
+alone is insufficient. Other pre-registration validity/kill criteria still apply.
+
+`--root` overrides `--split`; such input is recorded as `custom`, including when `--split test` is
+also written. Legacy JSON, missing metadata, dev/custom runs, baseline/unknown roles and unregistered
+cohorts produce descriptive estimates and `analysis_status: not_evaluated`, with reasons and no
+hypothesis verdicts. Numerical intervals are recomputed from the counts rather than trusting stored
+rates/intervals.
+
+Metadata and role declarations are **advisory provenance, not authenticated reviewer identity or
+tamper-proof evidence**. An edited JSON file can misrepresent who ran it or where counts came from.
+The checks prevent accidental reporting of ineligible runs; they do not establish dataset validity,
+independence, absence of contamination or compliance with every study criterion. Preserve source
+revisions, raw reviewer outputs and actual validation receipts alongside any report.
 
 ### Held-out split
 
