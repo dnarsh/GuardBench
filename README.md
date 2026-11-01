@@ -48,7 +48,7 @@ were added in new directories only.
 ## The honest numbers (baselines only, no model)
 
 Full tables with Wilson intervals, per-class recall and Newcombe differences:
-[`docs/RESULTS.md`](docs/RESULTS.md) (regenerate with `python -m guardbench report`).
+[`docs/RESULTS.md`](docs/RESULTS.md) (local dev report: `python -m guardbench report --out dev-results.md`).
 
 | Reviewer | Dev recall (n=30) | Held-out recall (n=100) | Clean-twin alarm (held-out) |
 |---|---|---|---|
@@ -95,7 +95,7 @@ python -m guardbench run --reviewer random       # hunk-all, random, command, or
 python -m guardbench run --reviewer random --json > run.json
 python -m guardbench run --reviewer command --command python examples/toy_reviewer.py
 python -m guardbench baselines                   # both baselines with exact random expectation
-python -m guardbench report                      # writes docs/RESULTS.md (held-out needs GUARDBENCH_HELDOUT)
+python -m guardbench report --out dev-results.md # local report; preserves committed docs/RESULTS.md
 python -m guardbench hyp run.json                # descriptive estimates; verdicts require eligibility
 python -m guardbench manifest DIR                # manifest hash used for prereg/split.sha256
 python -m guardbench hash apps --only NAME ...   # hash of selected apps (the original 12 are frozen)
