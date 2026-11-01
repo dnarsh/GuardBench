@@ -80,6 +80,12 @@ reviewer's recall must be read against it.
   ignore. Noise pools of the milestone-2 held-out apps remain private.
 - **Contamination.** Apps, dev items and the tests/READMEs of the held-out apps are public, and
   those tests and READMEs name the rule each defect breaks.
+- **Related dev cases.** Variants of the same app share code context. An
+  [offline audit](docs/DEV-OVERLAP-AUDIT.md) of the 30 public dev patches found median lexical
+  5-gram Jaccard similarity of 0.659 within apps, versus 0 across apps; two patch fragments had
+  incomplete tokenization. This does not establish independent cases or an effective sample size.
+  A small comparison with local public Python libraries cannot establish training exposure or
+  benchmark cleanliness. No private held-out data was inspected by this audit.
 - **Dev share is 23%, not 40%.**
 - **Tolerance** (+-3 lines) and the guard/logic grouping are judgement calls.
 - **Self-review.** The written reviews are by the agent that wrote the code.
